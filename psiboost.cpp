@@ -44,8 +44,8 @@
 #define PSILINK_STRUCT_ONLY
 #include "psilink.h"                     // (psion-core: Connection settings)
 
-_LIT(KVersion, "0.21");                  // also psiboost.pkg and pboostd.cpp
-_LIT8(KVersion8, "0.21");
+_LIT(KVersion, "0.22");                  // also psiboost.pkg and pboostd.cpp
+_LIT8(KVersion8, "0.22");
 const TUid KUidPsiBoost = { 0x01000A94 };
 _LIT(KIniName, "PsiBoost.ini");
 _LIT(KLogName, "PsiBoost.log");

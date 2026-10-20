@@ -47,7 +47,7 @@ const TInt KPortWaitSecs = 20;               // Psion Internet letting COMM::0 g
 const TInt KStageLinkUp = 1000;              // EIfProgressLinkUp: the 5mx may say this rather than EConnectionOpen (psiglue)
 const TInt KAppGoneMs = 5000;                // no beat from PsiBoost for this long: it has gone
 _LIT(KLogName, "PsiBoost.log");
-_LIT8(KSpVersion8, "0.21");                  // (as psiboost.cpp's)
+_LIT8(KSpVersion8, "0.22");                  // (as psiboost.cpp's)
 // The public servers (Tools > Test the speed, "Public (internet)"), checked
 // on 19 Oct 2026: a 1 MB file over plain HTTP (port 80, no
 // redirect, Content-Length, Range honoured), the second tried if the first
