@@ -128,7 +128,8 @@ RESOURCE MENU_PANE r_sp_speed_menu
 		{
 		MENU_ITEM { command=ESpCmdFast; txt="230,400 bps always"; flags=EEikMenuItemCheckBox|EEikMenuItemSeparatorAfter; },
 		MENU_ITEM { command=ESpCmdFree; txt="Free the serial port"; },
-		MENU_ITEM { command=ESpCmdCheck; txt="Check the modem's speed"; }
+		MENU_ITEM { command=ESpCmdCheck; txt="Check the modem's speed"; },
+		MENU_ITEM { command=ESpCmdOtherEnd; txt="The other end..."; }
 		};
 	}
 
@@ -167,6 +168,29 @@ RESOURCE DIALOG r_sp_test_dialog
 		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
 			txt="115,200 bps first, then 230,400 bps: a download and an echo at each"; }; }
 		};
+	}
+
+// Speed > The other end: a modem (told the speed by AT), or a computer or
+// other device whose speed is set by hand (the hook only, no AT)
+RESOURCE DIALOG r_sp_end_dialog
+	{
+	title="The other end";
+	flags=EEikDialogFlagWait;
+	buttons=R_EIK_BUTTONS_CANCEL_OK;
+	items=
+		{
+		DLG_LINE { type=EEikCtChoiceList; prompt="On the serial port"; id=ESpDlgOtherEnd;
+			control=CHOICELIST { array_id=r_sp_end_array; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			txt="A modem is told 230,400 bps by AT commands"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			txt="A computer or other device gets no AT: set its port to 230,400 bps yourself"; }; }
+		};
+	}
+
+RESOURCE ARRAY r_sp_end_array
+	{
+	items={ LBUF { txt="A modem"; }, LBUF { txt="A computer or other device"; } };
 	}
 
 RESOURCE ARRAY r_sp_route_array

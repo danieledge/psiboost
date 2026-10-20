@@ -15,7 +15,8 @@ enum TSpCommands
 	ESpCmdSendLog,              // Tools > Send log to server
 	ESpCmdResults,              // Tools > Last test results (Shift+Ctrl+L)
 	ESpCmdRestart,              // Tools > Restart the Psion...
-	ESpCmdShowLog               // Tools > Show log...
+	ESpCmdShowLog,              // Tools > Show log...
+	ESpCmdOtherEnd              // Speed > The other end... (0.23: a modem, or a computer: no AT)
 	};
 
 enum TSpDialogIds
@@ -29,7 +30,8 @@ enum TSpDialogIds
 	ESpDlgTestServer,
 	ESpDlgTestLength,
 	ESpDlgTestHost,
-	ESpDlgLogText
+	ESpDlgLogText,
+	ESpDlgOtherEnd
 	};
 
 #endif

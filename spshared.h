@@ -87,7 +87,7 @@ struct TSpShared
 	TInt iLayout;
 	// ---- the app (these eight never move) ----
 	volatile TInt iAuto;                     // 230400 always (as PsiBoost.ini says)
-	volatile TInt iSpare1;
+	volatile TInt iNoModem;                  // (0.23) the other end is not a modem: the hook only, no AT
 	volatile TInt iSpare2;
 	volatile TInt iSpare3;
 	volatile TInt iQuit;                     // the helper should end now

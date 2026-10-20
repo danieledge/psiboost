@@ -9,6 +9,11 @@
 #   EMU_SECS=N      seconds after the last event (default 8)
 #   EMU_LAUNCH=0    do not open Extras and the program
 #   EMU_CTRL=1      hold Ctrl down from 2 s to 40 s (the recogniser's way out)
+#   EMU_SERIAL=SOCK bridge the serial port (COMM::0) to a unix socket that
+#                   something already listens on, at EMU_ATTACH s (default 40;
+#                   switch the Remote link off before then with events, e.g.
+#                   "36 22 30" "36.1 76" "37.5 14" "38.5 3"). With nothing
+#                   attached the emulator's port never sends, and a write waits
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
@@ -26,6 +31,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 A=(--tap-seq 60 670 262 --tap-seq 62 335 215)
 [ "${EMU_LAUNCH:-1}" = 0 ] && A=()
 [ "${EMU_CTRL:-0}" = 1 ] && A+=(--press-key 2 22 2300)
+[ -n "${EMU_SERIAL:-}" ] && A+=(--serial-attach 2 "${EMU_ATTACH:-40}" --serial-bridge-socket "$EMU_SERIAL")
 last=62
 for e in "$@"; do
 	set -- $e; t=${1%.*}; [ "$t" -gt "$last" ] && last=$t

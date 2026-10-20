@@ -47,7 +47,7 @@ const TInt KPortWaitSecs = 20;               // Psion Internet letting COMM::0 g
 const TInt KStageLinkUp = 1000;              // EIfProgressLinkUp: the 5mx may say this rather than EConnectionOpen (psiglue)
 const TInt KAppGoneMs = 5000;                // no beat from PsiBoost for this long: it has gone
 _LIT(KLogName, "PsiBoost.log");
-_LIT8(KSpVersion8, "0.22");                  // (as psiboost.cpp's)
+_LIT8(KSpVersion8, "0.23");                  // (as psiboost.cpp's)
 // The public servers (Tools > Test the speed, "Public (internet)"), checked
 // on 19 Oct 2026: a 1 MB file over plain HTTP (port 80, no
 // redirect, Content-Length, Range honoured), the second tried if the first
@@ -556,7 +556,7 @@ static TInt FindModem(TSpSerial& aPort, TBool aHangUp = ETrue)
 	gModemSpeed = 0;
 	SetDivider(divs[0], ETrue);
 	if (aHangUp)
-		Step(_L8("No modem answers AT at 115,200 bps or 230,400 bps, even after +++ ATH (is it on and connected?)"));
+		Step(_L8("No modem answered AT at 115,200 or 230,400 bps, even after +++ ATH"));
 	return 0;
 	}
 
@@ -798,6 +798,37 @@ static void PutBack()
 	port.Close();
 	}
 
+// 230400 always with no modem (a cable to a computer, or a device whose
+// speed is set by hand): only the hook in or out, no AT. A program that has
+// the port open now keeps its speed until it opens it again. On a 5mx the
+// divider says whether the hook took, if the port is free to look.
+static TInt AlwaysNoModem(TBool aOn)
+	{
+	TInt h = HookSet(aOn);
+	if (h != KErrNone)
+		return h == KErrInUse ? ESpSetupForeign : ESpSetupNoHook;
+	if (aOn)
+		{
+		TSpSerial port;
+		if (PortOpen(port, 0) == KErrNone)
+			{
+			TInt d = Divider();
+			port.Close();
+			if (d >= 0 && d != KDiv230400)
+				{
+				TBuf8<100> m;
+				m.Format(_L8("The port opened with divider %d, not %d: the hook did not take"), d, KDiv230400);
+				Step(m);
+				HookSet(EFalse);
+				return ESpSetupNotHooked;
+				}
+			}
+		}
+	Step(aOn ? _L8("No modem: the hook is in - set the other end to 230,400 bps")
+	         : _L8("No modem: the hook is out - set the other end back to 115,200 bps"));
+	return ESpSetupOk;
+	}
+
 // 230400 always on (aOn) or off: TSpSetup. On: everything or nothing (the
 // hook out and the modem back at 115200 if any step fails). Off: off on the
 // Psion (the hook out) whatever the modem says, unless the port is in use
@@ -811,6 +842,8 @@ static TInt Always(TBool aOn)
 		Step(_L8("The serial port is hooked by another driver: restart the Psion"));
 		return ESpSetupForeign;
 		}
+	if (gS->iNoModem)
+		return AlwaysNoModem(aOn);
 	TSpSerial port;
 	TInt r = PortOpen(port, 0);
 	if (r != KErrNone)
@@ -861,6 +894,8 @@ static TBool FreePort()
 // at the other (no +++), only if the port is free. TSpShared::iModemSpeed.
 static TInt CheckModem()
 	{
+	if (gS->iNoModem)
+		return KSpModemNotLooked;            // (no modem: nothing to ask)
 	TSpSerial port;
 	if (PortOpen(port, 0) != KErrNone)
 		{
@@ -1759,6 +1794,11 @@ static void RunHalf(TSpHalf& aOut)
 static void Settle()
 	{
 	TBool always = gS->iAuto != 0;
+	if (gS->iNoModem)
+		{
+		HookSet(always);                     // (no modem: only the hook)
+		return;
+		}
 	TSpSerial port;
 	TInt r = ESpSetupInUse;
 	if (PortOpen(port, 10) == KErrNone)
@@ -1869,7 +1909,7 @@ static void Run()
 			TInt r = Always(wantOn);
 			gS->iSetupResult = r;
 			gS->iSetupNowOn = wantOn ? r == ESpSetupOk : r == ESpSetupInUse;
-			gS->iModemSpeed = r == ESpSetupOk ? (wantOn ? 230400 : 115200) : KSpModemNotLooked;
+			gS->iModemSpeed = r == ESpSetupOk && !gS->iNoModem ? (wantOn ? 230400 : 115200) : KSpModemNotLooked;
 			gS->iSetupDone = want;
 			gS->iHelperSeq++;
 			continue;

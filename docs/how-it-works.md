@@ -56,6 +56,10 @@ The Psion and the modem must agree on the speed. Turning 230,400 bps always on, 
 
 If any step fails, the hook comes out and the modem is put back at 115,200 bps. Turning it off is the same the other way. Every command and answer goes to `PsiBoost.log`.
 
+### With no modem
+
+When nothing answers `AT`, PsiBoost asks whether to turn 230,400 bps always on anyway, for a cable straight to a computer or a device whose speed is set by hand. On Yes, field 2 of `PsiBoost.ini` (spare until 0.23) says the other end is not a modem, and the app passes that to the helper in the shared memory's `iNoModem` (once `iSpare1`). From then on turning it on or off only puts the hook in or takes it out: no `AT`, no `+++`. On a 5mx, if the port is free, the helper opens it once to read the divider back (1 means the hook took); opening it sends one CR. The quick look at the modem's speed is not made, and the link test is not available, as each half would have to change the other end's speed. **Speed > The other end** changes it back, while 230,400 bps always is off. The start-up recogniser reads only field 0, so it needs no change.
+
 ## At start-up
 
 A restart takes the hook out, so PsiBoost installs a file recogniser, `PsiBoost.rdl`, in `D:\System\Recogs\` on the CF card. Apparc's server loads every recogniser in `\System\Recogs\` on every disk at start-up (`CApaScanningFileRecognizer::ScanForRecognizersL`, in the SDK's Apparc source) and calls its ordinal 1. PsiBoost's recognises nothing: it does its work there and returns NULL, so Apparc unloads it again. The work:

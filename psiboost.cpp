@@ -44,8 +44,8 @@
 #define PSILINK_STRUCT_ONLY
 #include "psilink.h"                     // (psion-core: Connection settings)
 
-_LIT(KVersion, "0.22");                  // also psiboost.pkg and pboostd.cpp
-_LIT8(KVersion8, "0.22");
+_LIT(KVersion, "0.23");                  // also psiboost.pkg and pboostd.cpp
+_LIT8(KVersion8, "0.23");
 const TUid KUidPsiBoost = { 0x01000A94 };
 _LIT(KIniName, "PsiBoost.ini");
 _LIT(KLogName, "PsiBoost.log");
@@ -68,7 +68,7 @@ struct TSpSettings
 	{
 	TInt iAlways;                        // 230400 always (the hook in, the modem at 230400 and saved)
 	TInt iWarned;                        // (0.21) the first-time warning has been shown
-	TInt iSpare2;                        // (0.19: the last call's speed)
+	TInt iOtherEnd;                      // (0.23) the other end of the cable: 0 a modem, 1 a computer or other device (no AT)
 	TInt iToolbar;                       // View > Show toolbar
 	TInt iTestRoute;                     // the link test: 0 the modem route, 1 Psion Internet (-1: as Connection settings)
 	TInt iTestServer;                    // ...TSpTestServer
@@ -83,7 +83,7 @@ struct TSpSettings
 const TInt KSpFields = 24;               // the 32-bit fields above
 // (1: 0.10 to 0.17, nine fields and the host; 2: 0.18, 22 fields; 3: 0.19,
 // field 0 was 230400 for Psion Internet calls, AT$CS; 4: 0.20, 230400 always;
-// 0.21 uses field 1, once spare, for the warning)
+// 0.21 uses field 1, once spare, for the warning; 0.23 field 2 for the other end)
 const TInt KSpIniVersion = 4;
 const TInt KTestSecs[3] = { 15, 75, 225 };   // each leg (four legs: two at each speed)
 
@@ -141,6 +141,18 @@ private:
 	void HandleControlStateChangeL(TInt aControlId);
 	void DimHost();
 	TSpSettings& iS;
+	};
+
+// Speed > The other end: a modem, or a computer or other device (no AT)
+class CSpEndDialog : public CEikDialog
+	{
+public:
+	CSpEndDialog(TInt& aEnd, TBool aAlways) : iEnd(aEnd), iAlways(aAlways) {}
+private:
+	void PreLayoutDynInitL();
+	TBool OkToExitL(TInt aButtonId);
+	TInt& iEnd;
+	TBool iAlways;
 	};
 
 class CSpLogDialog : public CEikDialog
@@ -202,6 +214,9 @@ private:
 	void StartFreeL();
 	void FreeDone();
 	void StartCheck();
+	TBool NoModem() const { return iSettings.iOtherEnd != 0; }
+	void AskNoModemL();
+	void OtherEndL();
 	void StartTestL();
 	void TestDone();
 	void SendLogL();
@@ -848,6 +863,25 @@ TBool CSpTestDialog::OkToExitL(TInt /*aButtonId*/)
 	return ETrue;
 	}
 
+void CSpEndDialog::PreLayoutDynInitL()
+	{
+	SetChoiceListCurrentItem(ESpDlgOtherEnd, iEnd ? 1 : 0);
+	}
+
+// (the other end changes only while 230400 always is off: the modem has to
+// be told, or has been)
+TBool CSpEndDialog::OkToExitL(TInt /*aButtonId*/)
+	{
+	TInt end = ChoiceListCurrentItem(ESpDlgOtherEnd) == 1 ? 1 : 0;
+	if (end != iEnd && iAlways)
+		{
+		iEikonEnv->InfoMsg(_L("Turn 230,400 bps always off first"));
+		return EFalse;
+		}
+	iEnd = end;
+	return ETrue;
+	}
+
 void CSpAboutDialog::PreLayoutDynInitL()
 	{
 	TBuf<32> title(_L("PsiBoost "));
@@ -891,7 +925,27 @@ static const TSpHelpTopic KHelpTopics[] =
 	  "\n"
 	  "Turning it off does the same the other way: the modem is told 115,200 bps and saves it, "
 	  "and the hook comes out. If the modem does not answer, 230,400 bps always is off on the "
-	  "Psion anyway: set the modem back to 115,200 bps yourself (see its manual or web page)." },
+	  "Psion anyway: set the modem back to 115,200 bps yourself (see its manual or web page).\n"
+	  "\n"
+	  "If no modem answers, PsiBoost asks whether to turn it on anyway, for a cable to a "
+	  "computer: see With a cable to a computer." },
+	{ "With a cable to a computer (no modem)",
+	  "With a serial cable straight to a computer (a null-modem cable), or a device whose "
+	  "speed you set yourself, no modem answers AT. PsiBoost then asks whether to turn "
+	  "230,400 bps always on anyway. On Yes it only puts the hook in, and remembers there is "
+	  "no modem: turning it on and off, start-up and the page send no AT commands. Speed > "
+	  "The other end changes it back to a modem (with 230,400 bps always off).\n"
+	  "\n"
+	  "Set the computer's port to 230,400 bps yourself, for example on Linux "
+	  "pppd /dev/ttyUSB0 230400 ... or stty -F /dev/ttyS0 230400. Most USB serial adapters "
+	  "(FTDI, PL2303, CP210x) do 230,400 bps. A PC's own serial port often stops at "
+	  "115,200 bps.\n"
+	  "\n"
+	  "On the Psion, a program must still ask for 115,200 bps: the hook turns that into "
+	  "230,400 bps. For Psion Internet, keep the setup you already use with the cable at "
+	  "115,200 bps: its modem settings still send their initialisation string and dial, "
+	  "so the computer's end must cope with them as before. PsiBoost changes only the speed. "
+	  "Test the speed needs a modem, so it is not available." },
 	{ "At start-up",
 	  "The hook is in the Psion's memory, so restarting the Psion takes it out. PsiBoost "
 	  "installs a small file on the CF card, PsiBoost.rdl in D:\\System\\Recogs, which puts "
@@ -909,7 +963,8 @@ static const TSpHelpTopic KHelpTopics[] =
 	{ "The page",
 	  "The first line says whether 230,400 bps always is on. The second says what the hook is "
 	  "doing now, and whether the modem is at the same speed (PsiBoost asks it when it "
-	  "opens, and Speed > Check the modem's speed asks it again). The third is the last "
+	  "opens, and Speed > Check the modem's speed asks it again). With no modem (Speed > "
+	  "The other end) it says what speed the other end must be at. The third is the last "
 	  "thing that happened.\n"
 	  "\n"
 	  "Free the serial port stops Psion Internet if it is connected and waits up to 20 s for "
@@ -1114,6 +1169,7 @@ void CSpAppUi::ConstructL()
 	if (iS)
 		{
 		iS->iAuto = iSettings.iAlways;
+		iS->iNoModem = iSettings.iOtherEnd;
 		iS->iAppOpen = 1;
 		iS->iAppBeat++;
 		iS->iQuit = 0;
@@ -1124,7 +1180,7 @@ void CSpAppUi::ConstructL()
 	TInt r = EnsureHelper();
 	if (r != KErrNone && iS)
 		HelperMissing(r);
-	else
+	else if (!NoModem())
 		StartCheck();
 	iView = new(ELeave) CSpView(*this);
 	iView->ConstructL(ViewRect());
@@ -1456,7 +1512,8 @@ void CSpAppUi::LoadSettings()
 		}
 	iSettings.iAlways = iSettings.iAlways == 1 ? 1 : 0;
 	iSettings.iWarned = iSettings.iWarned == 1 ? 1 : 0;
-	iSettings.iSpare2 = iSettings.iSpare7 = iSettings.iSpare22 = iSettings.iSpare23 = 0;
+	iSettings.iOtherEnd = iSettings.iOtherEnd == 1 ? 1 : 0;
+	iSettings.iSpare7 = iSettings.iSpare22 = iSettings.iSpare23 = 0;
 	if (iSettings.iTestServer != ESpServerOwn)
 		iSettings.iTestServer = ESpServerPublic;
 	}
@@ -1628,6 +1685,7 @@ void CSpAppUi::StartAlwaysL(TBool aOn)
 		return;
 		}
 	iS->iAuto = iSettings.iAlways;
+	iS->iNoModem = iSettings.iOtherEnd;
 	iS->iSetupWant = aOn ? 1 : 0;
 	iS->iSetupResult = ESpSetupNone;
 	iS->iSetupReq++;
@@ -1662,6 +1720,10 @@ void CSpAppUi::AlwaysDone()
 		m = _S("The serial port is in use - Speed > Free the serial port");
 	else if (res == ESpSetupForeign)
 		m = _S("The serial port is hooked by another program - restart the Psion");
+	else if (iBusyOn && NoModem() && res == ESpSetupOk)
+		m = _S("230,400 bps always on - set the other end to 230,400 bps");
+	else if (!iBusyOn && NoModem() && res == ESpSetupOk)
+		m = _S("230,400 bps always off - set the other end back to 115,200 bps");
 	else if (iBusyOn)
 		switch (res)
 			{
@@ -1680,8 +1742,54 @@ void CSpAppUi::AlwaysDone()
 		m = _S("230,400 bps always off - no answer from the modem: set it back to 115,200 bps");
 	else
 		m = _S("230,400 bps always off - the modem may not be at 115,200 bps: see PsiBoost.log");
-	iEikonEnv->InfoMsg(TPtrC(m));
 	ButtonStates();
+	iView->DrawNow();
+	// no modem answered: a cable to a computer, or a device whose speed is
+	// set by hand? Asked, rather than an infoprint
+	if (iBusyOn && res == ESpSetupNoModem && !NoModem())
+		{
+		AskNoModemL();
+		return;
+		}
+	iEikonEnv->InfoMsg(TPtrC(m));
+	}
+
+// No modem answered when 230400 always was turned on: on Yes, it is turned
+// on with no modem (the hook only, no AT), and PsiBoost.ini remembers there
+// is none (Speed > The other end changes it back)
+void CSpAppUi::AskNoModemL()
+	{
+	if (!iEikonEnv->QueryWinL(_L("No modem answered - for a computer, set its port to 230,400 bps"),
+	                          _L("Turn on 230,400 bps always anyway?")))
+		{
+		iEikonEnv->InfoMsg(_L("230,400 bps always is off - no modem answered"));
+		return;
+		}
+	iSettings.iOtherEnd = 1;
+	SaveSettings();
+	StartAlwaysL(ETrue);
+	}
+
+// Speed > The other end: a modem, or a computer or other device
+void CSpAppUi::OtherEndL()
+	{
+	if (NotNow())
+		return;
+	TInt end = iSettings.iOtherEnd;
+	CEikDialog* d = new(ELeave) CSpEndDialog(end, iSettings.iAlways);
+	if (!d->ExecuteLD(R_SP_END_DIALOG) || end == iSettings.iOtherEnd)
+		return;
+	iSettings.iOtherEnd = end;
+	SaveSettings();
+	if (iS)
+		{
+		iS->iNoModem = end;
+		iS->iModemSpeed = KSpModemNotLooked;
+		}
+	if (!end)
+		StartCheck();
+	SetLast(end ? _L("The other end is a computer or other device - PsiBoost sends it no AT commands")
+	            : _L("The other end is a modem"));
 	iView->DrawNow();
 	}
 
@@ -1730,6 +1838,13 @@ void CSpAppUi::StartTestL()
 	{
 	if (NotNow())
 		return;
+	if (NoModem())
+		{
+		// (each half tells the modem its speed: with no modem the other end
+		// would have to be changed by hand halfway through)
+		iEikonEnv->InfoMsg(_L("Not available - the test needs a modem (Speed > The other end)"));
+		return;
+		}
 	if (!iS)
 		{
 		HelperMissing(KErrNotReady);
@@ -2045,6 +2160,11 @@ void CSpAppUi::TileState(TInt aTile, TDes& aText, TBool& aOn, TBool& aDimmed) co
 		aOn = iTesting;
 		if (iTesting && iS)
 			aText.Copy(iS->iTestNow.Left(Min(iS->iTestNow.Length(), aText.MaxLength())));
+		else if (NoModem())
+			{
+			aDimmed = ETrue;
+			aText = _L("Needs a modem");
+			}
 		else if (iSettings.iResDone && iSettings.iVerdict.Length())
 			{
 			aText.Copy(iSettings.iVerdict.Left(Min(iSettings.iVerdict.Length(), aText.MaxLength())));
@@ -2105,6 +2225,10 @@ void CSpAppUi::StatusTexts(TDes& aAlways, TDes& aHook, TDes& aLast) const
 		else
 			aHook.Format(_L("Hook: not available - its driver did not load (%d)"), iHookErr);
 		}
+	else if (iHookFound == EPbHooked && NoModem())
+		aHook = _L("Hook: on - the other end must be at 230,400 bps");
+	else if (iHookFound == EPbStock && NoModem())
+		aHook = _L("Hook: off - the other end must be at 115,200 bps");
 	else if (iHookFound == EPbHooked)
 		aHook = modem == 115200 ? _L("Hook: on but the modem is at 115,200 bps") : _L("Hook: on - 115,200 bps becomes 230,400 bps");
 	else if (iHookFound == EPbStock)
@@ -2113,7 +2237,7 @@ void CSpAppUi::StatusTexts(TDes& aAlways, TDes& aHook, TDes& aLast) const
 		aHook = _L("Hook: taken by another program - restart the Psion");
 	else
 		aHook = _L("Hook: off - the serial port's driver was not found");
-	if (!aLast.Length() && modem == 0 && iS)
+	if (!aLast.Length() && modem == 0 && iS && !NoModem())
 		aLast = _L("The modem did not answer when PsiBoost looked");
 	}
 
@@ -2185,6 +2309,7 @@ void CSpAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane* aMenuPane)
 		aMenuPane->SetItemDimmed(ESpCmdFast, busy || !iHookOpen);
 		aMenuPane->SetItemDimmed(ESpCmdFree, busy);
 		aMenuPane->SetItemDimmed(ESpCmdCheck, busy);
+		aMenuPane->SetItemDimmed(ESpCmdOtherEnd, busy);
 		}
 	else if (aResourceId == R_SP_VIEW_MENU)
 		aMenuPane->SetItemButtonState(ESpCmdToolbar, iSettings.iToolbar ? EEikMenuItemSymbolOn : EEikMenuItemSymbolIndeterminate);
@@ -2202,7 +2327,9 @@ void CSpAppUi::HandleCommandL(TInt aCommand)
 		StartFreeL();
 		break;
 	case ESpCmdCheck:
-		if (!NotNow())
+		if (NoModem())
+			iEikonEnv->InfoMsg(_L("Not available - the other end is not a modem (Speed > The other end)"));
+		else if (!NotNow())
 			{
 			if (iS)
 				iS->iModemSpeed = KSpModemNotLooked;
@@ -2212,6 +2339,9 @@ void CSpAppUi::HandleCommandL(TInt aCommand)
 		break;
 	case ESpCmdTest:
 		StartTestL();
+		break;
+	case ESpCmdOtherEnd:
+		OtherEndL();
 		break;
 	case ESpCmdTestStop:
 		if (iTesting && iS)

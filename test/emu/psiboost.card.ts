@@ -7,11 +7,11 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 // PsiBoost.ini (version 4): 24 32-bit fields, then your own server and the
 // last verdict as length-prefixed strings. The fields: 230400 always, the
-// warning shown, spare, toolbar, testRoute, testServer, testLen, spare,
+// warning shown, the other end (0.23: 0 a modem, 1 a computer), toolbar, testRoute, testServer, testLen, spare,
 // resDone, resPass, 12 results, two spare.
 const ini = (always: number, testRoute: number, testServer: number, host: string, warned = 1,
-             res: number[] = [], verdict = '') => {
-	const f = [always, warned, 0, 1, testRoute, testServer, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+             res: number[] = [], verdict = '', end = 0) => {
+	const f = [always, warned, end, 1, testRoute, testServer, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 	res.forEach((v, i) => { f[8 + i] = v; });
 	const b = new Uint8Array(8 + 4 * f.length + 1 + host.length + 1 + verdict.length);
 	const dv = new DataView(b.buffer);
@@ -57,6 +57,15 @@ export const cards = {
 	psibooston: (c: any) => {
 		cards.psiboost(c);
 		c.w('SYSTEM/APPS/PSIBOOST/PSIBOOST.INI', ini(1, 0, 0, ''));
+	},
+	// 230400 always on with no modem (a cable to a computer): PsiBoost puts
+	// the hook back and sends no AT. Turning it on with no modem, on the
+	// plain psiboost card: test/emu/boot.sh with EMU_SERIAL bridged to
+	// something that never answers (the emulator's port sends nothing with
+	// nothing attached), the Remote link off, then a tap on the choice.
+	psiboostnomodem: (c: any) => {
+		cards.psiboost(c);
+		c.w('SYSTEM/APPS/PSIBOOST/PSIBOOST.INI', ini(1, 0, 0, '', 1, [], '', 1));
 	},
 	// The start-up test: 230400 always on, and the recogniser in
 	// D:\System\Recogs\ (as PsiBoost.sis installs it), so the hook is in
