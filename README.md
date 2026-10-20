@@ -12,7 +12,7 @@ Runs the **Psion Series 5mx**'s serial port at **230,400 bps** instead of 115,20
 - **230,400 bps always**: one choice. Turn it on and PsiBoost tells the modem 230,400 bps, puts the hook in, checks the modem answers at the new speed, and saves the speed on the modem. Turn it off and both go back to 115,200 bps. Other speeds are left alone.
 - **At start-up** a small file on the CF card puts the hook back, after checking everything first.
 - **Test the speed** runs the line at 115,200 bps and then at 230,400 bps, back to back, and shows the two side by side.
-- On a real 5mx, Psion Internet to public servers came out **1.4 times faster**, with no errors (the download from 4.6 to 6.9 KB/s). The serial line is not the only limit: the modem and the Psion's own TCP/IP take their share.
+- On a real 5mx, Psion Internet came out **2.1 times faster**, with no errors: downloads went from about 10 KB/s to 21.9 KB/s, about 95% of what the line can carry. This needs a modem that sends to the Psion as fast as the line allows during a Psion Internet call; the PsiConnect firmware does this from version 2.6. A modem that holds its sending back (PsiConnect before 2.6) keeps the gain smaller, about 1.4 times (4.6 to 6.9 KB/s).
 
 **Status: early beta.** Tested on one Psion Series 5mx (ROM 1.05(260), English), with the PsiConnect Wi-Fi modem on its serial port, and in a 5mx emulator end to end. Expect rough edges.
 
