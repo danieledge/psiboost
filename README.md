@@ -1,0 +1,134 @@
+# PsiBoost
+
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/danedge)
+
+> [!CAUTION]
+> Only tested on a Psion Series 5mx running ROM 1.05(260), with the [PsiConnect](https://github.com/danieledge/psiconnect) Wi-Fi modem. Back up C: before you try it on your own Psion. If it works on anything other than a 5mx, or with another modem, open an issue and I will update this page.
+
+Runs the **Psion Series 5mx**'s serial port at **230,400 bps** instead of 115,200 bps, twice as fast, for every program: PsiTerm, PsiMail, PsiWeb, PsiCast and the Psion's own Psion Internet (PPP). The Psion's serial driver stops at 115,200 bps; PsiBoost puts a small hook into it, so a program that asks for 115,200 bps gets 230,400 bps from the first byte, with nothing running in the background.
+
+<p align="center"><img src="docs/img/psiboost-main.png" alt="PsiBoost's page: 230,400 bps always is on, and the hook is on" width="560"></p>
+
+- **230,400 bps always**: one choice. Turn it on and PsiBoost tells the modem 230,400 bps, puts the hook in, checks the modem answers at the new speed, and saves the speed on the modem. Turn it off and both go back to 115,200 bps. Other speeds are left alone.
+- **At start-up** a small file on the CF card puts the hook back, after checking everything first.
+- **Test the speed** runs the line at 115,200 bps and then at 230,400 bps, back to back, and shows the two side by side.
+- On a real 5mx, Psion Internet to public servers came out **1.4 times faster**, with no errors (the download from 4.6 to 6.9 KB/s). The serial line is not the only limit: the modem and the Psion's own TCP/IP take their share.
+
+**Status: early beta.** Tested on one Psion Series 5mx (ROM 1.05(260), English), with the PsiConnect Wi-Fi modem on its serial port, and in a 5mx emulator end to end. Expect rough edges.
+
+PsiBoost is part of the [PsiTerm suite](https://github.com/danieledge/psiterm) (PsiTerm, PsiMail, PsiWeb, PsiCast) and uses its shared code, [psion-core](https://github.com/danieledge/psion-core).
+
+## What you need
+
+- A **Psion Series 5mx with ROM 1.05(260)**. On anything else PsiBoost does nothing (see *Other Psions*).
+- A **CF card** (D:), for the file that puts the hook back at start-up.
+- A **modem on the serial port that can run at 230,400 bps**, change speed by an AT command (`AT$SB=230400`, `ATB230400` or `AT+IPR=230400`) and save it with `AT&W`. The PsiConnect Wi-Fi modem firmware does all three, and is the only modem PsiBoost has been tested with.
+
+## Installing
+
+Download `PsiBoost.sis` from the [latest release](https://github.com/danieledge/psiboost/releases/latest) and install it, to D: if you can. The start-up file always goes on the CF card, whichever disk you choose. PsiBoost is on the Extras bar.
+
+The first time it opens, PsiBoost says what it has been tested on:
+
+<p align="center"><img src="docs/img/psiboost-warning.png" alt="The first-time warning: only tested on a 5mx with ROM 1.05(260) and the PsiConnect modem, back up C: first" width="560"></p>
+
+## Using it
+
+**230,400 bps always.** Tap it (or press Enter on it), and again to turn it off. The serial port must be free: close the program using it, or use **Free the serial port**, which stops Psion Internet if it is connected and waits up to 20 s for the port. While it works, the busy message says so:
+
+<p align="center"><img src="docs/img/psiboost-turning-on.png" alt="Turning 230,400 bps always on: the busy message at the bottom left" width="560"></p>
+
+If any step fails, the hook comes out, the modem goes back to 115,200 bps, and PsiBoost says why. If the modem does not answer when you turn it off, 230,400 bps always is off on the Psion anyway: set the modem back to 115,200 bps yourself.
+
+**The page** says whether 230,400 bps always is on, what the hook is doing now (and whether the modem is at the same speed: PsiBoost asks it when it opens, and **Speed > Check the modem's speed** asks again), and the last thing that happened.
+
+<p align="center"><img src="docs/img/psiboost-speed-menu.png" alt="The Speed menu: 230,400 bps always, Free the serial port, Check the modem's speed" width="560"></p>
+
+**The Remote link** to a PC (PsiWin) at 115,200 bps gets 230,400 bps too. Set it to 57,600 bps, or turn 230,400 bps always off, before you use it.
+
+### Testing the speed
+
+**Tools > Test the speed** runs the line at 115,200 bps and then at 230,400 bps, on the modem route or Psion Internet, against one server: a download and an echo at each speed, every byte checked, stalls and drops counted. The second half asks the port for 115,200 bps and gets 230,400 bps through the hook, as every program does. Afterwards the modem and the hook are put back as 230,400 bps always says.
+
+<p align="center"><img src="docs/img/psiboost-results.png" alt="The test results side by side: 115,200 bps, 230,400 bps and the gain" width="560"></p>
+
+*(A real 5mx's results, shown again in the emulator.)*
+
+- **Public (internet)**: a 1 MB file over plain HTTP from a public speed-test server, and a public TCP echo (tcpbin.com).
+<p align="center"><img src="docs/img/psiboost-test.png" alt="The Test the speed dialog: route, server, length and your own server's address" width="560"></p>
+
+- **Your own server**: an echo and a chargen service on a computer the modem can reach. Run [`server/stdsvc.py`](server/stdsvc.py) there (`python3 server/stdsvc.py`; it needs only Python 3) and type the computer's address. The echo is on port+7 and the chargen on port+19: `host` alone means `stdsvc.py`'s ports 7107 and 7119, `host:N` moves them to N+7 and N+19, and `host:0` uses a server's standard echo (7) and chargen (19).
+
+<p align="center"><img src="docs/img/psiboost-tools-menu.png" alt="The Tools menu: Test the speed, Show log, Send log to server, Restart the Psion, Help, About" width="560"></p>
+
+### The log
+
+Each step goes to `PsiBoost.log` in PsiBoost's folder, with what the modem said; the start-up file adds a line each time the Psion starts. When it is full it becomes `PsiBoost.old`. **Tools > Show log** shows the end of it. **Tools > Send log to server** sends it to your own [PsiProxy](https://github.com/danieledge/psiproxy), the proxy set in Connection settings (in PsiTerm, PsiMail or PsiWeb), as those programs send theirs. With no proxy set it is not available. Nothing is sent anywhere unless you ask.
+
+<p align="center"><img src="docs/img/psiboost-log.png" alt="Tools > Show log: the end of PsiBoost.log" width="560"></p>
+
+## Risks, and getting out of trouble
+
+The hook runs inside the Psion's operating system. A mistake there resets the Psion, and the Internal disk (C:) is RAM: **back it up before you start**. PsiBoost cannot harm the Psion itself.
+
+- **A soft reset takes the hook out.** Tools > Restart the Psion does one; so does the reset button. The files on C: stay.
+- **To start without the hook**, hold down **Ctrl** while the Psion starts (from when the screen comes on until the System screen appears), or create the file `D:\System\Data\PsiBoost.off`.
+- **If the Psion will not start properly**, take the CF card out and restart it: without the card nothing of PsiBoost's runs at start-up.
+- **To remove PsiBoost**, turn 230,400 bps always off first (so the modem goes back to 115,200 bps), then remove it in the Control panel's Add/remove.
+
+## Other Psions
+
+The program, its helper and the start-up file all check the machine first: a 640x240 screen and ROM 1.05(260). On anything else they load no driver and write nothing, and 230,400 bps always shows as not available. The hook driver also checks the serial driver's objects in ROM before it writes, so even a ROM that passed that test but differed inside would be refused. The addresses PsiBoost needs are that ROM's; another ROM would need them found again. If it works for you on another Psion, open an issue.
+
+## How it works
+
+The serial driver programs the UART's baud divider in one function, reached through a vtable in ROM. PsiBoost's hook driver keeps a copy of that vtable whose configure entry calls the real one and then, if it set 115,200 bps, sets 230,400 bps. Installing the hook is a single word written to kernel memory: the vtable pointer of the serial driver's factory object, and only after checking that it and both ROM entries it wraps are exactly as expected. Nothing else in the kernel is changed. See [`docs/how-it-works.md`](docs/how-it-works.md) for the whole story, with the addresses.
+
+## Building
+
+PsiBoost carries [psion-core](https://github.com/danieledge/psion-core) (the build environment, the shared Connection settings, the icon writer and the emulator tools) as the git submodule `core/`. The EPOC R5 SDK goes beside the checkout, as psion-core's [`docs/BUILDING.md`](https://github.com/danieledge/psion-core/blob/dev/docs/BUILDING.md) says.
+
+```
+git clone --recurse-submodules https://github.com/danieledge/psiboost.git
+cd psiboost
+core/tools/docker/psibuild setup             # once: the build image and the SDK
+core/tools/docker/psibuild "bash build.sh"   # build/pkg/PsiBoost.sis
+```
+
+| File | What it is |
+|---|---|
+| `psiboost.cpp`, `.rss`, `.hrh` | PsiBoost.app: the page, the menus, the dialogs, the hook read and put back |
+| `pboostd.cpp` | `pboostd.exe`, the helper: all the serial work, while PsiBoost is open |
+| `sptest.c`, `sptest.h` | the link test's arithmetic (chargen, echo, HTTP, MD5, the verdict), plain C |
+| `spshared.h` | the memory the program and the helper share |
+| `hook/pbhook.cpp`, `pbhook.h` | `PBHOOK20.LDD`, the hook |
+| `uart/pbuart.cpp`, `pbuart.h` | `PBUART21.LDD`, the helper's reads of the UART's registers |
+| `rec/pbrec.cpp` | `PsiBoost.rdl`, the start-up file (a file recogniser that recognises nothing) |
+| `kern.h`, `ekern_rom.def` | the kernel classes and the 5mx ROM's EKERN ordinals, as the SDK has neither |
+| `mktbar.py`, `mkicon.py` | the pictures and the icon |
+| `psiboost.pkg`, `build.sh` | the package and the build |
+| `server/stdsvc.py` | echo, discard and chargen, for the test's *Your own server* |
+
+## Testing
+
+`make -C test test` runs the link test's logic on a PC against `server/stdsvc.py`. `python3 test/modem_e2e.py HOSTMODEM` runs the modem route's dialogue against PsiConnect's modem code on a PC (its `hosttest/hostmodem`).
+
+In the emulator (psion-core's `core/tools/emu/`, with [psionEmulators](https://github.com/joehaines/psionEmulators) beside this checkout and your own copy of the 5mx ROM):
+
+```
+node --experimental-strip-types core/tools/emu/mkcard.ts psiboostboot build/emu/boot.img
+test/emu/boot.sh bootpage build/emu/boot.img      # start-up: the recogniser puts the hook in
+python3 core/tools/emu/net.py boostsetup          # 230,400 bps always on and off against hostmodem
+python3 server/stdsvc.py --host 127.0.0.1 &
+python3 core/tools/emu/net.py boost               # the link test, both halves
+```
+
+`net.py` needs a [psiconnect](https://github.com/danieledge/psiconnect) checkout beside this one (or `PSICONNECT=DIR`) for its `hosttest/hostmodem`. The emulator does not model the UART's divider or the serial line's speed, so the speeds there are nominal: only a real 5mx shows 230,400 bps.
+
+## Support
+
+If it's useful to you and you'd like to say thanks, you can [buy me a coffee](https://buymeacoffee.com/danedge).
+
+## Licence
+
+MIT: see [LICENSE](LICENSE).

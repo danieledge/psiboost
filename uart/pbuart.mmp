@@ -1,0 +1,11 @@
+// pbuart.mmp - PBUART21.LDD, PsiBoost's UART driver (the helper's reads of
+// UART2's registers, and its divider while the helper's own port is open)
+TARGET          pbuart21.ldd
+TARGETTYPE      ldd
+UID             0x100000ae 0x0100FA12
+PROJECT         ptproj
+SUBPROJECT      pboostuart
+SOURCE          pbuart.cpp
+USERINCLUDE     . \ptproj\psiboost
+SYSTEMINCLUDE   \epoc32\include
+LIBRARY         euser.lib psiekern.lib

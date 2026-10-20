@@ -1,0 +1,12 @@
+// pbrec.mmp - PsiBoost.rdl, the recogniser that puts PsiBoost's hook back
+// at start-up. A file recogniser (UID2 0x1000013E),
+// which Apparc's server loads from \System\Recogs\ on every disk.
+TARGET          psiboost.rdl
+TARGETTYPE      dll
+UID             0x1000013E 0x01000A96
+PROJECT         ptproj
+SUBPROJECT      pboostrec
+SOURCE          pbrec.cpp
+USERINCLUDE     . \ptproj\psiboost
+SYSTEMINCLUDE   \epoc32\include
+LIBRARY         euser.lib efsrv.lib ws32.lib

@@ -1,0 +1,35 @@
+// psiboost.hrh - PsiBoost's commands and dialog lines
+#ifndef PSIBOOST_HRH
+#define PSIBOOST_HRH
+
+enum TSpCommands
+	{
+	ESpCmdFast = 0x1000,        // Speed > 230400 always (tick box, Shift+Ctrl+B; the page's first choice)
+	ESpCmdFree,                 // Speed > Free the serial port (Shift+Ctrl+R; the page's second)
+	ESpCmdCheck,                // Speed > Check the modem's speed
+	ESpCmdToolbar,              // View > Show toolbar (Ctrl+T)
+	ESpCmdHelp,                 // Tools > Help on PsiBoost (Shift+Ctrl+H)
+	ESpCmdAbout,                // Tools > About PsiBoost (Shift+Ctrl+A)
+	ESpCmdTest,                 // Tools > Test the speed... (Shift+Ctrl+D; the page's third)
+	ESpCmdTestStop,             // Tools > Stop the test (Shift+Ctrl+X)
+	ESpCmdSendLog,              // Tools > Send log to server
+	ESpCmdResults,              // Tools > Last test results (Shift+Ctrl+L)
+	ESpCmdRestart,              // Tools > Restart the Psion...
+	ESpCmdShowLog               // Tools > Show log...
+	};
+
+enum TSpDialogIds
+	{
+	ESpDlgAbout1 = 0x2000,
+	ESpDlgAbout2,
+	ESpDlgAboutStatus,
+	ESpDlgHelpTopic,
+	ESpDlgHelpText,
+	ESpDlgTestRoute,
+	ESpDlgTestServer,
+	ESpDlgTestLength,
+	ESpDlgTestHost,
+	ESpDlgLogText
+	};
+
+#endif

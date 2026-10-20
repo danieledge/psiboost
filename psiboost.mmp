@@ -1,0 +1,12 @@
+// psiboost.mmp - PsiBoost, the serial port at 230400
+TARGET          psiboost.app
+TARGETTYPE      app
+UID             0x1000006c 0x01000A94
+TARGETPATH      \system\apps\psiboost
+PROJECT         ptproj
+SUBPROJECT      psiboost
+SOURCE          psiboost.cpp
+RESOURCE        psiboost.rss
+USERINCLUDE     . \ptproj\psiboostcore
+SYSTEMINCLUDE   \epoc32\include
+LIBRARY         euser.lib apparc.lib cone.lib eikon.lib gdi.lib ws32.lib efsrv.lib etext.lib bafl.lib fbscli.lib form.lib

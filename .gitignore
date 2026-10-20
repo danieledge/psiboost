@@ -1,0 +1,21 @@
+# build output (build.sh: build/pkg/PsiBoost.sis; objects go to the SDK's folders)
+/build/
+*.marm
+*.o
+*.sis
+*.log
+spicons.h
+__pycache__/
+*.pyc
+# host tests' output
+/test/sptest_host
+/test/stdsvc.log
+/test/stdsvc.pid
+# local files, never published
+*_local.*
+*.local.*
+*.local
+*~
+.DS_Store
+.claude/
+CLAUDE.local.md

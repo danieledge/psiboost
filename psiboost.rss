@@ -1,0 +1,246 @@
+// PSIBOOST.RSS - menus, shortcuts, toolbar and dialogs for PsiBoost
+
+NAME PBST
+
+#include <eikdef.rh>
+#include <eikmenu.rh>
+#include <eikmenu.hrh>
+#include <eikcmds.hrh>
+#include <eikdialg.rh>
+#include <eikdialg.hrh>
+#include <eikedwin.rh>
+#include <eikchlst.rh>
+#include <eikcmbut.rh>
+#include <eiklabel.rh>
+#include <eikctrls.hrh>
+#include <eiktbar.rh>
+#include <eikclock.rh>
+#include <eikspace.rh>
+#include <eikrted.rh>
+#include <eikon.rsg>
+
+#include "psiboost.hrh"
+
+RESOURCE RSS_SIGNATURE { }
+
+RESOURCE TBUF { buf=""; }
+
+RESOURCE EIK_APP_INFO
+	{
+	menubar=r_sp_menubar;
+	hotkeys=r_sp_hotkeys;
+	toolbar=r_sp_toolbar;
+	}
+
+// The toolbar: the name, four buttons (Always stays pressed in while 230400
+// always is on), the clock
+RESOURCE TOOLBAR r_sp_toolbar
+	{
+	breadth=KEikStdToolBarWidth;
+	controls=
+		{
+		TBAR_CTRL
+			{
+			type=EEikCtLabel;
+			flags=EEikToolBarCtrlHasSetMinLength;
+			length=KEikStdFileNameLabelHeight;
+			control=LABEL { txt="PsiBoost"; horiz_align=EEikLabelAlignHCenter; vert_align=EEikLabelAlignVCenter; };
+			},
+		TBAR_BUTTON { id=ESpCmdFast; layout=EEikCmdButTextRightPictureLeft|EEikCmdButDenseFont|EEikCmdButExcessToText; txt="Always"; flags=EEikToolBarCtrlHasSetMinLength; length=KEikStdToolBarButtonHeight; },
+		TBAR_BUTTON { id=ESpCmdFree; layout=EEikCmdButTextRightPictureLeft|EEikCmdButDenseFont|EEikCmdButExcessToText; txt="Free"; flags=EEikToolBarCtrlHasSetMinLength; length=KEikStdToolBarButtonHeight; },
+		TBAR_BUTTON { id=ESpCmdTest; layout=EEikCmdButTextRightPictureLeft|EEikCmdButDenseFont|EEikCmdButExcessToText; txt="Test"; flags=EEikToolBarCtrlHasSetMinLength; length=KEikStdToolBarButtonHeight; },
+		TBAR_BUTTON { id=ESpCmdResults; layout=EEikCmdButTextRightPictureLeft|EEikCmdButDenseFont|EEikCmdButExcessToText; txt="Results"; flags=EEikToolBarCtrlHasSetMinLength; length=KEikStdToolBarButtonHeight; },
+		TBAR_CTRL
+			{
+			type=EEikCtSpacer;
+			flags=EEikToolBarCtrlHasSetMinLength|EEikToolBarCtrlIsStretchable;
+			length=0;
+			control=SPACER;
+			},
+		TBAR_CTRL
+			{
+			type=EEikCtClock;
+			control=CLOCK { digitalresourceid=R_EIK_DIGITAL_CLOCK; analogresourceid=R_EIK_ANALOG_CLOCK; };
+			},
+		TBAR_CTRL
+			{
+			type=EEikCtSpacer;
+			flags=EEikToolBarCtrlHasSetMinLength;
+			length=KEikStdGapBelowClock;
+			control=SPACER;
+			}
+		};
+	}
+
+// Shortcuts: EIKON's standard letters (Ctrl+E close, Ctrl+T toolbar,
+// Shift+Ctrl+H help, Shift+Ctrl+A about), and free shifted letters for
+// PsiBoost's own: B 230400 always (boost), R release (free) the serial port,
+// D the test, X stop it, L the last results
+RESOURCE HOTKEYS r_sp_hotkeys
+	{
+	control=
+		{
+		HOTKEY { command=EEikCmdExit; key='e'; },
+		HOTKEY { command=ESpCmdToolbar; key='t'; }
+		};
+	shift_control=
+		{
+		HOTKEY { command=ESpCmdFast; key='b'; },
+		HOTKEY { command=ESpCmdFree; key='r'; },
+		HOTKEY { command=ESpCmdTest; key='d'; },
+		HOTKEY { command=ESpCmdTestStop; key='x'; },
+		HOTKEY { command=ESpCmdResults; key='l'; },
+		HOTKEY { command=ESpCmdHelp; key='h'; },
+		HOTKEY { command=ESpCmdAbout; key='a'; }
+		};
+	}
+
+RESOURCE MENU_BAR r_sp_menubar
+	{
+	titles=
+		{
+		MENU_TITLE { menu_pane=r_sp_file_menu; txt="File"; },
+		MENU_TITLE { menu_pane=r_sp_view_menu; txt="View"; },
+		MENU_TITLE { menu_pane=r_sp_speed_menu; txt="Speed"; },
+		MENU_TITLE { menu_pane=r_sp_tools_menu; txt="Tools"; }
+		};
+	}
+
+RESOURCE MENU_PANE r_sp_file_menu
+	{
+	items=
+		{
+		MENU_ITEM { command=EEikCmdExit; txt="Close"; }
+		};
+	}
+
+RESOURCE MENU_PANE r_sp_view_menu
+	{
+	items=
+		{
+		MENU_ITEM { command=ESpCmdToolbar; txt="Show toolbar"; flags=EEikMenuItemCheckBox; }
+		};
+	}
+
+RESOURCE MENU_PANE r_sp_speed_menu
+	{
+	items=
+		{
+		MENU_ITEM { command=ESpCmdFast; txt="230,400 bps always"; flags=EEikMenuItemCheckBox|EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command=ESpCmdFree; txt="Free the serial port"; },
+		MENU_ITEM { command=ESpCmdCheck; txt="Check the modem's speed"; }
+		};
+	}
+
+RESOURCE MENU_PANE r_sp_tools_menu
+	{
+	items=
+		{
+		MENU_ITEM { command=ESpCmdTest; txt="Test the speed..."; },
+		MENU_ITEM { command=ESpCmdTestStop; txt="Stop the test"; },
+		MENU_ITEM { command=ESpCmdResults; txt="Last test results"; },
+		MENU_ITEM { command=ESpCmdShowLog; txt="Show log..."; },
+		MENU_ITEM { command=ESpCmdSendLog; txt="Send log to server"; flags=EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command=ESpCmdRestart; txt="Restart the Psion..."; flags=EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command=ESpCmdHelp; txt="Help on PsiBoost"; },
+		MENU_ITEM { command=ESpCmdAbout; txt="About PsiBoost"; }
+		};
+	}
+
+// Tools > Test the speed: 115200 and then 230400, back to back, on one
+// route against one server
+RESOURCE DIALOG r_sp_test_dialog
+	{
+	title="Test the speed";
+	flags=EEikDialogFlagWait;
+	buttons=R_EIK_BUTTONS_CANCEL_OK;
+	items=
+		{
+		DLG_LINE { type=EEikCtChoiceList; prompt="Route"; id=ESpDlgTestRoute;
+			control=CHOICELIST { array_id=r_sp_route_array; }; },
+		DLG_LINE { type=EEikCtChoiceList; prompt="Server"; id=ESpDlgTestServer;
+			control=CHOICELIST { array_id=r_sp_server_array; }; },
+		DLG_LINE { type=EEikCtChoiceList; prompt="Length"; id=ESpDlgTestLength;
+			control=CHOICELIST { array_id=r_sp_length_array; }; },
+		DLG_LINE { type=EEikCtEdwin; prompt="Server address"; id=ESpDlgTestHost;
+			control=EDWIN { width=20; maxlength=60; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			txt="115,200 bps first, then 230,400 bps: a download and an echo at each"; }; }
+		};
+	}
+
+RESOURCE ARRAY r_sp_route_array
+	{
+	items={ LBUF { txt="The modem route"; }, LBUF { txt="Psion Internet"; } };
+	}
+
+RESOURCE ARRAY r_sp_server_array
+	{
+	items={ LBUF { txt="Public (internet)"; }, LBUF { txt="Your own server"; } };
+	}
+
+RESOURCE ARRAY r_sp_length_array
+	{
+	items={ LBUF { txt="Quick (1 minute)"; }, LBUF { txt="5 minutes"; }, LBUF { txt="15 minutes"; } };
+	}
+
+RESOURCE DIALOG r_sp_help_dialog
+	{
+	title="Help on PsiBoost";
+	flags=EEikDialogFlagWait|EEikDialogFlagNotifyEsc;
+	buttons=R_EIK_BUTTONS_CONTINUE;
+	items=
+		{
+		DLG_LINE { type=EEikCtChoiceList; prompt="Topic"; id=ESpDlgHelpTopic;
+			control=CHOICELIST { array_id=r_sp_empty_array; }; },
+		DLG_LINE { type=EEikCtRichTextEditor; prompt=""; id=ESpDlgHelpText;
+			control=RTXTED { width=520; height=118; numlines=7; textlimit=8000; flags=EEikEdwinNoAutoSelection|EEikEdwinReadOnly; }; }
+		};
+	}
+
+RESOURCE ARRAY r_sp_empty_array
+	{
+	items={ LBUF { txt="-"; } };
+	}
+
+RESOURCE DIALOG r_sp_about_dialog
+	{
+	title="About PsiBoost";
+	flags=EEikDialogFlagWait;
+	buttons=R_EIK_BUTTONS_CONTINUE;
+	items=
+		{
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgAbout1; control=LABEL { standard_font=EEikLabelFontLegend; reserve_length=24; txt="PsiBoost"; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgAbout2; control=LABEL { txt="Every program's serial port at 230,400 bps - (c) 2026 Dan Edge"; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgAboutStatus; control=LABEL { standard_font=EEikLabelFontAnnotation; reserve_length=70; txt="-"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="Only tested on a 5mx, ROM 1.05(260), with a PsiConnect modem: back up C: first"; }; }
+		};
+	}
+
+// Tools > Show log: the end of PsiBoost.log, read only
+RESOURCE DIALOG r_sp_log_dialog
+	{
+	title="PsiBoost log";
+	flags=EEikDialogFlagWait|EEikDialogFlagNotifyEsc;
+	buttons=R_EIK_BUTTONS_CONTINUE;
+	items=
+		{
+		DLG_LINE { type=EEikCtRichTextEditor; prompt=""; id=ESpDlgLogText;
+			control=RTXTED { width=560; height=150; numlines=7; textlimit=8000; flags=EEikEdwinNoAutoSelection|EEikEdwinReadOnly; }; }
+		};
+	}
+
+// The first time PsiBoost opens (once: PsiBoost.ini remembers it)
+RESOURCE DIALOG r_sp_warn_dialog
+	{
+	title="Before you use PsiBoost";
+	flags=EEikDialogFlagWait;
+	buttons=R_EIK_BUTTONS_CONTINUE;
+	items=
+		{
+		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="Only tested on a Psion Series 5mx, ROM 1.05(260),"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="with the PsiConnect Wi-Fi modem"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="Back up the Internal disk (C:) before you use it"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="If it works on another Psion or modem, say so at github.com/danieledge/psiboost"; }; }
+		};
+	}

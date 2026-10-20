@@ -1,0 +1,10 @@
+// pbhook.mmp - PBHOOK20.LDD, PsiBoost's serial-speed hook
+TARGET          pbhook20.ldd
+TARGETTYPE      ldd
+UID             0x100000ae 0x0100FA25
+PROJECT         ptproj
+SUBPROJECT      pboosthook
+SOURCE          pbhook.cpp
+USERINCLUDE     . \ptproj\psiboost
+SYSTEMINCLUDE   \epoc32\include
+LIBRARY         euser.lib psiekern.lib
