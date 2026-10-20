@@ -10,8 +10,9 @@ them with an ordinary socket):
 
 On 7100 and up (--base) because an unprivileged user cannot listen below
 1024; with --base 0 they are on the standard ports 7, 9 and 19 (as root).
-Run it on a computer the modem can reach, and give PsiBoost its address as
-host:base (Tools > Test the speed, Your own server). A connection is
+Run it on a computer the Psion can reach, and give PsiBoost its name or
+address and the base port (Tools > Test the speed, Your own server: Server
+name or address, Base port). A connection is
 closed after 20 minutes, and at most 8 are served at once.
 
     python3 stdsvc.py [--host 0.0.0.0] [--base 7100]

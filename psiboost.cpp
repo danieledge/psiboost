@@ -8,7 +8,9 @@
 // serial port, and Test the speed (its last result). After a test the page
 // shows the results side by side (115200, 230400, the gain) until a key or a
 // tap. Tools > Show log shows the end of PsiBoost.log. The first time
-// PsiBoost opens it says what it has been tested on (the warning, once).
+// PsiBoost opens (or the first time 0.24 opens, if the other end is not
+// known yet) it welcomes the user, says what it has been tested on, and asks
+// what is on the other end of the serial cable (WelcomeL).
 // The serial work is pboostd.exe's (the helper): the app starts it,
 // passes it requests through the shared chunk, waits with a busy message and
 // shows what it says. The app reads the hook itself (PBHOOK20.LDD), and puts
@@ -23,6 +25,7 @@
 #include <eikdoc.h>
 #include <eikdialg.h>
 #include <eikchlst.h>
+#include <eikmfne.h>
 #include <eiklabel.h>
 #include <eikrted.h>
 #include <eiktbar.h>
@@ -30,6 +33,7 @@
 #include <eikmenup.h>
 #include <eikcmds.hrh>
 #include <eikmenu.hrh>
+#include <eikdialg.hrh>
 #include <txtrich.h>
 #include <frmtview.h>
 #include <coecntrl.h>
@@ -44,8 +48,8 @@
 #define PSILINK_STRUCT_ONLY
 #include "psilink.h"                     // (psion-core: Connection settings)
 
-_LIT(KVersion, "0.23");                  // also psiboost.pkg and pboostd.cpp
-_LIT8(KVersion8, "0.23");
+_LIT(KVersion, "0.24");                  // also psiboost.pkg and pboostd.cpp
+_LIT8(KVersion8, "0.24");
 const TUid KUidPsiBoost = { 0x01000A94 };
 _LIT(KIniName, "PsiBoost.ini");
 _LIT(KLogName, "PsiBoost.log");
@@ -59,6 +63,8 @@ const TInt KHelperQuitWaitMs = 8000;     // an older helper asked to quit: how l
 const TInt KTileCount = 3;
 enum TSpTile { ESpTileAlways, ESpTileFree, ESpTileTest };
 typedef TBuf<24> TSpCell;                // one of the results page's figures (never a TDes*: the stride)
+const TInt KResRows = 6;                 // download, echo, round trip, stalls, bad bytes, (0.24) when
+const TInt KResCells = KResRows * 3;
 
 // ----- settings: PsiBoost.ini, a version, a count, then 32-bit fields, then
 // strings (a length byte and the characters: your own server, the last verdict).
@@ -67,23 +73,25 @@ typedef TBuf<24> TSpCell;                // one of the results page's figures (n
 struct TSpSettings
 	{
 	TInt iAlways;                        // 230400 always (the hook in, the modem at 230400 and saved)
-	TInt iWarned;                        // (0.21) the first-time warning has been shown
+	TInt iWarned;                        // (0.21) the first-time warning: 0 not shown, 1 shown (0.21 to 0.23), 2 (0.24) the welcome and the other end chosen
 	TInt iOtherEnd;                      // (0.23) the other end of the cable: 0 a modem, 1 a computer or other device (no AT)
 	TInt iToolbar;                       // View > Show toolbar
 	TInt iTestRoute;                     // the link test: 0 the modem route, 1 Psion Internet (-1: as Connection settings)
 	TInt iTestServer;                    // ...TSpTestServer
 	TInt iTestLen;                       // ...0 quick, 1 5 minutes, 2 15 minutes
-	TInt iSpare7;                        // (0.10 to 0.19: Say when the speed changes)
-	TInt iResDone, iResPass;             // the last test's results (0: none yet)
-	TInt iRes[2][6];                     // ...at 115200 and 230400: down, echo, rtt, stalls, bad, drops
-	TInt iSpare22, iSpare23;             // (0.19: the last call's time, and whether it opened)
+	TInt iTestBoth;                      // (0.24) 2: the test was last run at both speeds (else one: as 230400 always says). (0.10 to 0.19: Say when the speed changes, 0 or 1)
+	TInt iResDone, iResPass;             // the last test's results (0: none yet); iResPass bit 0 the verdict passed, (0.24) bit 1 the 115200 column, bit 2 the 230400 column
+	TInt iRes[2][6];                     // ...at 115200 and 230400: down, echo, rtt, stalls, bad, drops (down -1: not run)
+	TInt iResAt[2];                      // (0.24) when each column was run: seconds since 1 Jan 2000, local time (0: not known). (0.19: the last call's time, and whether it opened)
 	TBuf8<60> iTestHost;                 // the test's own server: "host" or "host:port"
 	TBuf8<200> iVerdict;                 // ...and its last verdict line
 	};
 const TInt KSpFields = 24;               // the 32-bit fields above
 // (1: 0.10 to 0.17, nine fields and the host; 2: 0.18, 22 fields; 3: 0.19,
 // field 0 was 230400 for Psion Internet calls, AT$CS; 4: 0.20, 230400 always;
-// 0.21 uses field 1, once spare, for the warning; 0.23 field 2 for the other end)
+// 0.21 uses field 1, once spare, for the warning; 0.23 field 2 for the other end;
+// 0.24 field 7 for the test's speeds, 22 and 23 for when each column was run,
+// and bits 1 and 2 of field 9)
 const TInt KSpIniVersion = 4;
 const TInt KTestSecs[3] = { 15, 75, 225 };   // each leg (four legs: two at each speed)
 
@@ -134,25 +142,44 @@ private:
 class CSpTestDialog : public CEikDialog
 	{
 public:
-	CSpTestDialog(TSpSettings& aS) : iS(aS) {}
+	CSpTestDialog(TSpSettings& aS, TInt& aOnly, TBool aNoModem, TBool aHookIn)
+		: iS(aS), iOnly(aOnly), iNoModem(aNoModem), iHookIn(aHookIn) {}
 private:
 	void PreLayoutDynInitL();
 	TBool OkToExitL(TInt aButtonId);
 	void HandleControlStateChangeL(TInt aControlId);
+	void PrepareForFocusTransitionL();
 	void DimHost();
+	TInt iBase;                      // the base port as last left
 	TSpSettings& iS;
+	TInt& iOnly;                     // the speed chosen: 115200, 230400, or 0 both
+	TBool iNoModem;                  // the other end is a computer: both is not available
+	TBool iHookIn;                   // 230400 always is on (the hook in)
 	};
 
-// Speed > The other end: a modem, or a computer or other device (no AT)
+// What is on the other end of the serial cable: a modem, or a computer or
+// other device (no AT). The second page of the welcome (aFirst: Continue
+// only, and Esc does not get out of it), and Speed > The other end.
 class CSpEndDialog : public CEikDialog
 	{
 public:
-	CSpEndDialog(TInt& aEnd, TBool aAlways) : iEnd(aEnd), iAlways(aAlways) {}
+	CSpEndDialog(TInt& aEnd, TBool aAlways, TBool aFirst) : iEnd(aEnd), iAlways(aAlways), iFirst(aFirst) {}
 private:
 	void PreLayoutDynInitL();
 	TBool OkToExitL(TInt aButtonId);
+	void HandleControlStateChangeL(TInt aControlId);
+	void ShowNextL();
 	TInt& iEnd;
 	TBool iAlways;
+	TBool iFirst;
+	};
+
+// The welcome's first page: what PsiBoost has been tested on. Continue
+// only; Esc does not get out of it.
+class CSpWelcomeDialog : public CEikDialog
+	{
+private:
+	TBool OkToExitL(TInt aButtonId);
 	};
 
 class CSpLogDialog : public CEikDialog
@@ -217,11 +244,13 @@ private:
 	TBool NoModem() const { return iSettings.iOtherEnd != 0; }
 	void AskNoModemL();
 	void OtherEndL();
+	void SetOtherEnd(TInt aEnd);
+	void AppLog(const TDesC& aLine) const;
 	void StartTestL();
 	void TestDone();
 	void SendLogL();
 	void ShowLogL();
-	void WarnL();
+	void WelcomeL();
 	void RestartL();
 	void HelperStopped();
 	void OpenHook();
@@ -251,7 +280,8 @@ private:
 	TInt iBusy;                          // TSpBusy
 	TBool iBusyOn;                       // ...ESpBusySetup: turning 230400 always on
 	TBool iChecking;                     // a quick look at the modem is asked for
-	TBool iWarnPending;                  // the first-time warning is to be shown
+	TBool iWarnPending;                  // the welcome is to be shown (or iWarned brought up to date)
+	TInt iTestOnly;                      // the test running: at 115200 or 230400 only, or 0 both
 	// the hook, as the app reads it
 	RPbHook iHook;
 	TBool iHookOpen;
@@ -584,7 +614,7 @@ void CSpView::DrawResults(CWindowGc& aGc) const
 	TRect r = Rect();
 	TInt x0 = r.iTl.iX + KPageMargin + 8, x1 = r.iBr.iX - KPageMargin - 8;
 	TBuf<200> verdict;
-	TSpCell cells[5 * 3];
+	TSpCell cells[KResCells];
 	TBool pass = EFalse;
 	iUi.ResultTexts(verdict, cells, pass);
 	TInt y = r.iTl.iY + KPageMargin + 2;
@@ -606,14 +636,18 @@ void CSpView::DrawResults(CWindowGc& aGc) const
 	_LIT(KRow2, "Round trip");
 	_LIT(KRow3, "Stalls");
 	_LIT(KRow4, "Bad bytes");
-	const TDesC* rows[5] = { &KRow0, &KRow1, &KRow2, &KRow3, &KRow4 };
+	_LIT(KRow5, "Tested");
+	const TDesC* rows[KResRows] = { &KRow0, &KRow1, &KRow2, &KRow3, &KRow4, &KRow5 };
 	_LIT(KCol0, "115,200 bps");
 	_LIT(KCol1, "230,400 bps");
 	_LIT(KCol2, "Gain");
 	const TDesC* cols[3] = { &KCol0, &KCol1, &KCol2 };
-	TInt nameW = iName->TextWidthInPixels(KRow1) + 24;
+	// (all black, the rows a size up: grey and the smallest type were too
+	// faint to read on a real 5mx)
+	const CFont* rowFont = iLastFont;
+	TInt nameW = rowFont->TextWidthInPixels(KRow1) + 24;
 	TInt colW = (x1 - x0 - nameW) / 3;
-	TInt lineH = iText->HeightInPixels() + 4;
+	TInt lineH = rowFont->HeightInPixels() + 4;
 	aGc.UseFont(iName);
 	aGc.SetPenColor(KRgbBlack);
 	for (TInt c = 0; c < 3; c++)
@@ -621,25 +655,23 @@ void CSpView::DrawResults(CWindowGc& aGc) const
 		TInt w = iName->TextWidthInPixels(*cols[c]);
 		aGc.DrawText(*cols[c], TPoint(x0 + nameW + (c + 1) * colW - w, y + iName->AscentInPixels()));
 		}
-	y += iName->HeightInPixels() + 4;
-	for (TInt i = 0; i < 5; i++)
+	y += iName->HeightInPixels() + 3;
+	aGc.UseFont(rowFont);
+	aGc.SetPenColor(KRgbBlack);
+	for (TInt i = 0; i < KResRows; i++)
 		{
-		aGc.UseFont(iText);
-		aGc.SetPenColor(KRgbBlack);
-		aGc.DrawText(*rows[i], TPoint(x0, y + iText->AscentInPixels()));
+		aGc.DrawText(*rows[i], TPoint(x0, y + rowFont->AscentInPixels()));
 		for (TInt c = 0; c < 3; c++)
 			{
 			const TDesC& v = cells[i * 3 + c];
-			aGc.SetPenColor(c == 2 ? KRgbDarkGray : KRgbBlack);
-			TInt w = iText->TextWidthInPixels(v);
-			aGc.DrawText(v, TPoint(x0 + nameW + (c + 1) * colW - w, y + iText->AscentInPixels()));
+			TInt w = rowFont->TextWidthInPixels(v);
+			aGc.DrawText(v, TPoint(x0 + nameW + (c + 1) * colW - w, y + rowFont->AscentInPixels()));
 			}
 		y += lineH;
 		}
-	aGc.SetPenColor(KRgbDarkGray);
-	aGc.UseFont(iSmall);
+	aGc.UseFont(iText);
 	_LIT(KBack, "Esc, or tap, for the page");
-	aGc.DrawText(KBack, TPoint(x1 - iSmall->TextWidthInPixels(KBack), r.iBr.iY - KPageMargin - iSmall->DescentInPixels()));
+	aGc.DrawText(KBack, TPoint(x1 - iText->TextWidthInPixels(KBack), r.iBr.iY - KPageMargin - iText->DescentInPixels()));
 	}
 
 void CSpView::Draw(const TRect& /*aRect*/) const
@@ -809,69 +841,203 @@ static TBool SplitServer(const TDesC8& aText, TDes8& aHost, TInt& aBase)
 	return ETrue;
 	}
 
+// the speeds' choice list: 115200 only, 230400 only, both (the modem told
+// each speed in turn)
+enum { ESpSpeed115, ESpSpeed230, ESpSpeedBoth };
+
 void CSpTestDialog::PreLayoutDynInitL()
 	{
-	SetChoiceListCurrentItem(ESpDlgTestRoute, iS.iTestRoute == 1 ? 1 : 0);
+	// (one speed: the one the line is at now; both, if that was last time's
+	// and the other end is a modem)
+	SetChoiceListCurrentItem(ESpDlgTestSpeed, iS.iTestBoth == 2 && !iNoModem ? ESpSpeedBoth : iHookIn ? ESpSpeed230 : ESpSpeed115);
+	// (with a computer the modem route is no use: Psion Internet)
+	SetChoiceListCurrentItem(ESpDlgTestRoute, iS.iTestRoute == 1 || iNoModem ? 1 : 0);
 	SetChoiceListCurrentItem(ESpDlgTestServer, iS.iTestServer == ESpServerOwn ? 1 : 0);
 	SetChoiceListCurrentItem(ESpDlgTestLength, iS.iTestLen >= 0 && iS.iTestLen <= 2 ? iS.iTestLen : 0);
+	// (PsiBoost.ini keeps your own server as "host:base" in its string, as
+	// before 0.24: the two lines split it)
+	TBuf8<60> host8;
+	TInt base = 7100;
+	SplitServer(iS.iTestHost, host8, base);
 	TBuf<60> h;
-	h.Copy(iS.iTestHost);
+	h.Copy(host8);
 	SetEdwinTextL(ESpDlgTestHost, &h);
+	SetNumberEditorValue(ESpDlgTestPort, base);
+	iBase = base;
 	DimHost();
 	}
 
-// the server's address only matters for your own server
+// the ports your own server needs, from the base port (as stdsvc.py --base)
+static void PortsText(TDes& aText, TInt aBase)
+	{
+	if (aBase == 0)
+		aText = _L("Echo 7 and chargen 19: a server's standard ports");
+	else
+		aText.Format(_L("Echo %d and chargen %d, as server/stdsvc.py with base port %d"), aBase + 7, aBase + 19, aBase);
+	}
+
+// the server's address only matters for your own server; the note under
+// the speed says what that choice needs
 void CSpTestDialog::DimHost()
 	{
-	SetLineDimmedNow(ESpDlgTestHost, ChoiceListCurrentItem(ESpDlgTestServer) != 1);
+	TBool own = ChoiceListCurrentItem(ESpDlgTestServer) == 1;
+	SetLineDimmedNow(ESpDlgTestHost, !own);
+	SetLineDimmedNow(ESpDlgTestPort, !own);
+	{
+	TBuf<80> ports;
+	if (own)
+		{
+		PortsText(ports, iBase);
+		}
+	else
+		ports = _L("Public servers: a 1 MB file over the web, and an echo");
+	CEikLabel* p = (CEikLabel*)Control(ESpDlgTestPorts);
+	if (p)
+		{
+		p->SetTextL(ports);
+		p->DrawNow();
+		}
+	}
+	TInt speed = ChoiceListCurrentItem(ESpDlgTestSpeed);
+	TPtrC note(speed == ESpSpeed115 ? _L("As the line is now: 230,400 bps always must be off")
+	         : speed == ESpSpeed230 ? _L("As the line is now: 230,400 bps always must be on")
+	         : iNoModem ? _L("Not available - needs a modem that changes speed with AT commands")
+	         : _L("Needs a modem that changes speed with AT commands"));
+	CEikLabel* l = (CEikLabel*)Control(ESpDlgTestNote);
+	if (l)
+		{
+		l->SetTextL(note);
+		l->DrawNow();
+		}
 	}
 
 void CSpTestDialog::HandleControlStateChangeL(TInt aControlId)
 	{
-	if (aControlId == ESpDlgTestServer)
+	if (aControlId == ESpDlgTestServer || aControlId == ESpDlgTestSpeed)
 		DimHost();
+	}
+
+// (the ports' line follows the base port once its line is left)
+void CSpTestDialog::PrepareForFocusTransitionL()
+	{
+	CEikDialog::PrepareForFocusTransitionL();
+	TInt base = NumberEditorValue(ESpDlgTestPort);
+	if (base != iBase)
+		{
+		iBase = base;
+		DimHost();
+		}
 	}
 
 TBool CSpTestDialog::OkToExitL(TInt /*aButtonId*/)
 	{
+	TInt speed = ChoiceListCurrentItem(ESpDlgTestSpeed);
+	TPtrC why(KNullDesC);
+	if (speed == ESpSpeedBoth && iNoModem)
+		why.Set(_L("Both speeds need a modem - the other end is a computer"));
+	else if (speed == ESpSpeed230 && !iHookIn)
+		why.Set(_L("230,400 bps always is off - turn it on first"));
+	else if (speed == ESpSpeed115 && iHookIn)
+		why.Set(_L("230,400 bps always is on - turn it off first"));
+	if (why.Length())
+		{
+		TryChangeFocusToL(ESpDlgTestSpeed);
+		iEikonEnv->InfoMsg(why);
+		return EFalse;
+		}
+	if (iNoModem && ChoiceListCurrentItem(ESpDlgTestRoute) != 1)
+		{
+		TryChangeFocusToL(ESpDlgTestRoute);
+		iEikonEnv->InfoMsg(_L("The modem route needs a modem - choose Psion Internet"));
+		return EFalse;
+		}
 	TBuf<60> h;
 	GetEdwinText(h, ESpDlgTestHost);
 	h.Trim();
 	TInt server = ChoiceListCurrentItem(ESpDlgTestServer) == 1 ? ESpServerOwn : ESpServerPublic;
-	if (server == ESpServerOwn)
+	TInt base = NumberEditorValue(ESpDlgTestPort);
+	// (a ":port" typed after the name, as before 0.24, is taken as the base port)
+	{
+	TBuf8<60> h8, host;
+	h8.Copy(h);
+	TInt typed = base;
+	if (h.Locate(':') >= 0)
 		{
-		TBuf8<60> h8, host;
-		h8.Copy(h);
-		TInt base;
-		if (!h.Length() || h[0] == ':')
-			{
-			TryChangeFocusToL(ESpDlgTestHost);
-			iEikonEnv->InfoMsg(_L("No server address entered"));
-			return EFalse;
-			}
-		if (!SplitServer(h8, host, base))
+		if (!SplitServer(h8, host, typed))
 			{
 			TryChangeFocusToL(ESpDlgTestHost);
 			iEikonEnv->InfoMsg(_L("The port after the ':' must be a number up to 65000"));
 			return EFalse;
 			}
+		h.Copy(host);
+		base = typed;
+		}
+	}
+	if (server == ESpServerOwn && !h.Length())
+		{
+		TryChangeFocusToL(ESpDlgTestHost);
+		iEikonEnv->InfoMsg(_L("No server address entered"));
+		return EFalse;
 		}
 	iS.iTestHost.Copy(h);
+	if (h.Length())
+		iS.iTestHost.AppendFormat(_L8(":%d"), base);
 	iS.iTestRoute = ChoiceListCurrentItem(ESpDlgTestRoute);
 	iS.iTestServer = server;
 	iS.iTestLen = ChoiceListCurrentItem(ESpDlgTestLength);
+	iOnly = speed == ESpSpeed115 ? 115200 : speed == ESpSpeed230 ? 230400 : 0;
+	iS.iTestBoth = iOnly == 0 ? 2 : 0;
 	return ETrue;
 	}
 
 void CSpEndDialog::PreLayoutDynInitL()
 	{
 	SetChoiceListCurrentItem(ESpDlgOtherEnd, iEnd ? 1 : 0);
+	if (!iFirst)
+		{
+		CEikLabel* l = (CEikLabel*)Control(ESpDlgEndLater);
+		if (l)
+			l->SetTextL(_L("230,400 bps always must be off to change it"));
+		}
+	ShowNextL();
+	}
+
+// what happens next, for the choice the list is on
+void CSpEndDialog::ShowNextL()
+	{
+	TBool computer = ChoiceListCurrentItem(ESpDlgOtherEnd) == 1;
+	CEikLabel* l = (CEikLabel*)Control(ESpDlgEndNext);
+	if (l)
+		{
+		l->SetTextL(computer ? _L("Next: set the computer's port to 230,400 bps") : _L("Next: turn on 230,400 bps always"));
+		l->DrawNow();
+		}
+	l = (CEikLabel*)Control(ESpDlgEndHow);
+	if (l)
+		{
+		l->SetTextL(computer ? _L("when 230,400 bps always is on: PsiBoost sends the computer nothing")
+		                     : _L("PsiBoost then tells the modem 230,400 bps, and the modem saves it"));
+		l->DrawNow();
+		}
+	}
+
+void CSpEndDialog::HandleControlStateChangeL(TInt aControlId)
+	{
+	if (aControlId == ESpDlgOtherEnd)
+		ShowNextL();
 	}
 
 // (the other end changes only while 230400 always is off: the modem has to
-// be told, or has been)
-TBool CSpEndDialog::OkToExitL(TInt /*aButtonId*/)
+// be told, or has been). The welcome's page has no Cancel, and Esc stays.
+TBool CSpEndDialog::OkToExitL(TInt aButtonId)
 	{
+	if (aButtonId == EEikBidCancel)
+		{
+		if (!iFirst)
+			return ETrue;
+		iEikonEnv->InfoMsg(_L("Choose the other end, then Continue"));
+		return EFalse;
+		}
 	TInt end = ChoiceListCurrentItem(ESpDlgOtherEnd) == 1 ? 1 : 0;
 	if (end != iEnd && iAlways)
 		{
@@ -880,6 +1046,14 @@ TBool CSpEndDialog::OkToExitL(TInt /*aButtonId*/)
 		}
 	iEnd = end;
 	return ETrue;
+	}
+
+TBool CSpWelcomeDialog::OkToExitL(TInt aButtonId)
+	{
+	if (aButtonId != EEikBidCancel)
+		return ETrue;
+	iEikonEnv->InfoMsg(_L("Continue to set up PsiBoost"));
+	return EFalse;
 	}
 
 void CSpAboutDialog::PreLayoutDynInitL()
@@ -913,6 +1087,20 @@ static const TSpHelpTopic KHelpTopics[] =
 	  "\n"
 	  "If it works on another Psion, or with another modem, say so on PsiBoost's GitHub page "
 	  "(github.com/danieledge/psiboost)." },
+	{ "The first time it opens",
+	  "The first time PsiBoost opens, it welcomes you and says what it has been tested on. "
+	  "Then it asks what is on the other end of the Psion's serial cable:\n"
+	  "\n"
+	  "A Wi-Fi or dial-up modem: anything that answers AT commands, such as the PsiConnect "
+	  "Wi-Fi modem, a dial-up modem or a phone. PsiBoost tells it the speed.\n"
+	  "\n"
+	  "A computer or other device: anything that does not answer AT, such as a computer on a "
+	  "serial cable or a USB serial adapter, running pppd or similar. PsiBoost sends it "
+	  "nothing: set its port to 230,400 bps yourself when 230,400 bps always is on.\n"
+	  "\n"
+	  "Both pages must be answered with Continue: Esc does not get round them. If PsiBoost is "
+	  "closed before then, they come again next time. Speed > The other end changes the "
+	  "choice later, while 230,400 bps always is off." },
 	{ "230,400 bps always",
 	  "Tap 230,400 bps always (or press Enter on it) to turn it on, and again to turn it off. The "
 	  "serial port must be free: if a program is using it, close it first, or use Free the "
@@ -927,14 +1115,15 @@ static const TSpHelpTopic KHelpTopics[] =
 	  "and the hook comes out. If the modem does not answer, 230,400 bps always is off on the "
 	  "Psion anyway: set the modem back to 115,200 bps yourself (see its manual or web page).\n"
 	  "\n"
-	  "If no modem answers, PsiBoost asks whether to turn it on anyway, for a cable to a "
-	  "computer: see With a cable to a computer." },
+	  "If the other end is a modem but none answers, PsiBoost asks whether to turn it on "
+	  "anyway, for a cable to a computer: see With a cable to a computer." },
 	{ "With a cable to a computer (no modem)",
 	  "With a serial cable straight to a computer (a null-modem cable), or a device whose "
-	  "speed you set yourself, no modem answers AT. PsiBoost then asks whether to turn "
-	  "230,400 bps always on anyway. On Yes it only puts the hook in, and remembers there is "
-	  "no modem: turning it on and off, start-up and the page send no AT commands. Speed > "
-	  "The other end changes it back to a modem (with 230,400 bps always off).\n"
+	  "speed you set yourself, choose A computer or other device when PsiBoost first opens, "
+	  "or in Speed > The other end (with 230,400 bps always off). If you chose a modem and "
+	  "none answers, PsiBoost asks whether to turn 230,400 bps always on anyway, and on Yes "
+	  "remembers there is no modem. Then it only puts the hook in or takes it out: turning "
+	  "it on and off, start-up and the page send no AT commands.\n"
 	  "\n"
 	  "Set the computer's port to 230,400 bps yourself, for example on Linux "
 	  "pppd /dev/ttyUSB0 230400 ... or stty -F /dev/ttyS0 230400. Most USB serial adapters "
@@ -944,8 +1133,11 @@ static const TSpHelpTopic KHelpTopics[] =
 	  "On the Psion, a program must still ask for 115,200 bps: the hook turns that into "
 	  "230,400 bps. For Psion Internet, keep the setup you already use with the cable at "
 	  "115,200 bps: its modem settings still send their initialisation string and dial, "
-	  "so the computer's end must cope with them as before. PsiBoost changes only the speed. "
-	  "Test the speed needs a modem, so it is not available." },
+	  "so the computer's end must cope with them as before. PsiBoost changes only the speed.\n"
+	  "\n"
+	  "Test the speed works at one speed at a time, on Psion Internet: 115,200 bps with "
+	  "230,400 bps always off, then 230,400 bps with it on, the computer set to match each "
+	  "time. Both speeds at once needs a modem." },
 	{ "At start-up",
 	  "The hook is in the Psion's memory, so restarting the Psion takes it out. PsiBoost "
 	  "installs a small file on the CF card, PsiBoost.rdl in D:\\System\\Recogs, which puts "
@@ -963,8 +1155,8 @@ static const TSpHelpTopic KHelpTopics[] =
 	{ "The page",
 	  "The first line says whether 230,400 bps always is on. The second says what the hook is "
 	  "doing now, and whether the modem is at the same speed (PsiBoost asks it when it "
-	  "opens, and Speed > Check the modem's speed asks it again). With no modem (Speed > "
-	  "The other end) it says what speed the other end must be at. The third is the last "
+	  "opens, and Speed > Check the modem's speed asks it again). With a computer on the "
+	  "other end (Speed > The other end) it says what speed the computer must be at. The third is the last "
 	  "thing that happened.\n"
 	  "\n"
 	  "Free the serial port stops Psion Internet if it is connected and waits up to 20 s for "
@@ -983,20 +1175,39 @@ static const TSpHelpTopic KHelpTopics[] =
 	  "PsiProxy: the proxy set in Connection settings (in PsiTerm, PsiMail or PsiWeb). "
 	  "Nothing is sent anywhere unless you ask." },
 	{ "Testing the speed",
-	  "Tools > Test the speed runs the line at 115,200 bps and then at 230,400 bps, back to back, on one "
-	  "route against one server: a download and an echo at each, every byte checked, stalls "
-	  "and drops counted. The second half asks the port for 115,200 bps and gets 230,400 bps "
-	  "through the hook, as every program does.\n"
+	  "Tools > Test the speed runs a download and an echo on one route against one server, "
+	  "every byte checked, stalls and drops counted. Speed says at what:\n"
 	  "\n"
-	  "Public (internet) uses a 1 MB file on a public web server and a public echo. Your own "
-	  "server uses an echo and a chargen service on a computer the modem can reach: type its "
-	  "address as host or host:port. The echo is on port+7 and the chargen on port+19; with "
-	  "no port, 7100 (7107 and 7119, as PsiBoost's stdsvc.py serves them), and host:0 for a "
-	  "server's standard ports 7 and 19.\n"
+	  "115,200 bps or 230,400 bps: that speed only, with the line as it is now. PsiBoost "
+	  "changes nothing, so 230,400 bps always must be off for 115,200 bps and on for "
+	  "230,400 bps, and the other end must be at the same speed. This works with a modem or "
+	  "a computer. Only that column of the results changes; the other keeps its last result, "
+	  "and when both have passed the verdict compares them.\n"
+	  "\n"
+	  "Both: 115,200 bps and then 230,400 bps, back to back, the modem told each speed in "
+	  "turn. It needs a modem that changes speed with AT commands. The second half asks the "
+	  "port for 115,200 bps and gets 230,400 bps through the hook, as every program does. "
+	  "Afterwards the modem and the hook are put back as 230,400 bps always says.\n"
+	  "\n"
+	  "Public (internet) uses a 1 MB file on a public web server and a public echo.\n"
+	  "\n"
+	  "Your own server uses an echo and a chargen service on a computer the Psion can reach. "
+	  "Choose Your own server, then type the computer's name or address in Server name or "
+	  "address, and its base port in Base port. The echo is on the base port + 7 and the "
+	  "chargen on the base port + 19: 7100 means 7107 and 7119. A base port of 0 means a "
+	  "server's standard ports, 7 and 19. The line under it says which ports, and the page "
+	  "shows the server under Test the speed.\n"
+	  "\n"
+	  "To run the server, copy server/stdsvc.py from PsiBoost's GitHub page to the computer "
+	  "and run python3 stdsvc.py there (it needs only Python 3). It listens on all the "
+	  "computer's addresses with the base port 7100: echo 7107, discard 7109, chargen 7119. "
+	  "python3 stdsvc.py --base N moves them to N+7, N+9 and N+19; the Psion's Base port must "
+	  "then be N. Let those ports through the computer's firewall.\n"
 	  "\n"
 	  "The results come side by side: the download and echo rates, the round trip, stalls "
-	  "and bad bytes at each speed, and the gain. Afterwards the modem and the hook are put "
-	  "back as 230,400 bps always says. Tools > Last test results shows them again." },
+	  "and bad bytes at each speed, the gain, and when each speed was tested. With a "
+	  "computer, use Psion Internet: the modem route needs a modem. Tools > Last test "
+	  "results shows them again." },
 	};
 const TInt KHelpCount = sizeof(KHelpTopics) / sizeof(KHelpTopics[0]);
 
@@ -1188,8 +1399,8 @@ void CSpAppUi::ConstructL()
 	iTimer = CPeriodic::NewL(CActive::EPriorityStandard);
 	iTimer->Start(KTickUs, KTickUs, TCallBack(Tick, this));
 	ButtonStates();
-	// (the first time: what PsiBoost has been tested on, once the page is up)
-	iWarnPending = !iSettings.iWarned;
+	// (the first time: the welcome and the other end, once the page is up)
+	iWarnPending = iSettings.iWarned < 2;
 	}
 
 CSpAppUi::~CSpAppUi()
@@ -1260,13 +1471,13 @@ void CSpAppUi::HookAtStart()
 		RefreshHook();
 		if (r == KErrNone && iHookFound == EPbHooked)
 			{
-			SetLast(_L("The hook was off (a restart?) - PsiBoost has put it back"));
-			iEikonEnv->InfoMsg(_L("The hook was off - PsiBoost has put it back"));
+			SetLast(_L("230,400 bps was off (a restart?) - PsiBoost has turned it back on"));
+			iEikonEnv->InfoMsg(_L("230,400 bps is back on"));
 			}
 		else
 			{
 			TBuf<80> m;
-			m.Format(_L("The hook was off and could not be put back (%d)"), r);
+			m.Format(_L("230,400 bps was off and could not be turned back on (%d)"), r);
 			SetLast(m);
 			iEikonEnv->InfoMsg(m);
 			}
@@ -1313,6 +1524,35 @@ void CSpAppUi::LastStartUp(TDes& aLine) const
 	TBuf<100> t;
 	t.Copy(rest.Left(Min(rest.Length(), aLine.MaxLength() - aLine.Length())));
 	aLine.Append(t);
+	}
+
+// a line in PsiBoost.log from PsiBoost itself (the helper writes the rest),
+// as the helper writes them: the time, the text. The helper keeps the log
+// small (PsiBoost.old)
+void CSpAppUi::AppLog(const TDesC& aLine) const
+	{
+	TFileName name = AppDir();
+	name.Append(KLogName);
+	RFs& fs = iCoeEnv->FsSession();
+	RFile f;
+	TInt r = f.Open(fs, name, EFileWrite | EFileShareAny);
+	if (r == KErrNotFound)
+		r = f.Create(fs, name, EFileWrite | EFileShareAny);
+	if (r != KErrNone)
+		return;
+	TInt end = 0;
+	f.Seek(ESeekEnd, end);
+	TTime t;
+	t.HomeTime();
+	TDateTime d = t.DateTime();
+	TBuf8<260> l;
+	l.Format(_L8("%02d:%02d:%02d "), d.Hour(), d.Minute(), d.Second());
+	TBuf8<240> a;
+	a.Copy(aLine.Left(Min(aLine.Length(), a.MaxLength())));
+	l.Append(a);
+	l.Append(_L8("\r\n"));
+	f.Write(l);
+	f.Close();
 	}
 
 void CSpAppUi::SetLast(const TDesC& aText)
@@ -1511,9 +1751,18 @@ void CSpAppUi::LoadSettings()
 			}
 		}
 	iSettings.iAlways = iSettings.iAlways == 1 ? 1 : 0;
-	iSettings.iWarned = iSettings.iWarned == 1 ? 1 : 0;
+	iSettings.iWarned = iSettings.iWarned == 1 || iSettings.iWarned == 2 ? iSettings.iWarned : 0;
 	iSettings.iOtherEnd = iSettings.iOtherEnd == 1 ? 1 : 0;
-	iSettings.iSpare7 = iSettings.iSpare22 = iSettings.iSpare23 = 0;
+	iSettings.iTestBoth = iSettings.iTestBoth == 2 ? 2 : 0;
+	// (before 0.24 a test always ran both halves, and field 9 was 1 or 0:
+	// a pass was a pass in both columns. Fields 22 and 23 were spare: 0)
+	if (version < KSpIniVersion || count < KSpFields)
+		iSettings.iResAt[0] = iSettings.iResAt[1] = 0;
+	if (iSettings.iResPass == 1)
+		iSettings.iResPass = 7;
+	for (TInt c = 0; c < 2; c++)
+		if (iSettings.iResAt[c] < 0)
+			iSettings.iResAt[c] = 0;
 	if (iSettings.iTestServer != ESpServerOwn)
 		iSettings.iTestServer = ESpServerPublic;
 	}
@@ -1561,7 +1810,13 @@ TInt CSpAppUi::EnsureHelper()
 			if (find.Next(name) == KErrNone && iHelper.Open(find) == KErrNone)
 				iHelperOpen = ETrue;
 			}
-		return KErrNone;
+		// (0.24) and really there: the shared memory can say running after
+		// the helper was ended from outside, and a request would then wait
+		// for nobody, with nothing in the log
+		if (iHelperOpen && iHelper.ExitType() == EExitPending)
+			return KErrNone;
+		AppLog(_L("PsiBoost's helper was not running: starting it again"));
+		iHelperStarted = EFalse;
 		}
 	if (iHelperOpen)
 		{
@@ -1572,7 +1827,13 @@ TInt CSpAppUi::EnsureHelper()
 	exe.Append(KSpHelperExe);
 	TInt r = iHelper.Create(exe, KNullDesC);
 	if (r != KErrNone)
+		{
+		TBuf<120> m;
+		m.Format(_L("PsiBoost's helper did not start (%d): "), r);
+		m.Append(exe.Right(Min(exe.Length(), m.MaxLength() - m.Length())));
+		AppLog(m);
 		return r;
+		}
 	iHelperOpen = ETrue;
 	iS->iState = ESpStarting;
 	iS->iDriver = KErrNone;
@@ -1608,6 +1869,7 @@ void CSpAppUi::HelperDied()
 		iS->iHelperSeq++;
 		}
 	SetLast(m);
+	AppLog(m);
 	HelperStopped();
 	iEikonEnv->InfoMsg(m);
 	}
@@ -1647,6 +1909,7 @@ void CSpAppUi::HelperMissing(TInt aErr)
 		}
 	else
 		m.Format(_L("PsiBoost's helper did not start (%d)"), aErr);
+	AppLog(m);
 	iEikonEnv->InfoMsg(m);
 	}
 
@@ -1681,7 +1944,7 @@ void CSpAppUi::StartAlwaysL(TBool aOn)
 	if (aOn && !iHookOpen)
 		{
 		iEikonEnv->InfoMsg(iHookErr == KErrNotSupported ? _L("Not available - for a 5mx with ROM 1.05(260) only")
-		                                                : _L("Not available - the hook's driver did not load"));
+		                                                : _L("Not available - PsiBoost's driver did not load"));
 		return;
 		}
 	iS->iAuto = iSettings.iAlways;
@@ -1730,8 +1993,8 @@ void CSpAppUi::AlwaysDone()
 		case ESpSetupOk: m = _S("230,400 bps always on - 115,200 bps becomes 230,400 bps"); break;
 		case ESpSetupNoModem: m = _S("No answer from the modem - it may be off or not connected"); break;
 		case ESpSetupNoSpeed: m = _S("The modem cannot go to 230,400 bps - see PsiBoost.log"); break;
-		case ESpSetupNoHook: m = _S("The hook could not be put in - see PsiBoost.log"); break;
-		case ESpSetupNotHooked: m = _S("The port stayed at 115,200 bps with the hook in - see PsiBoost.log"); break;
+		case ESpSetupNoHook: m = _S("230,400 bps could not be turned on - see PsiBoost.log"); break;
+		case ESpSetupNotHooked: m = _S("The port stayed at 115,200 bps - see PsiBoost.log"); break;
 		case ESpSetupNoAnswer: m = _S("No answer from the modem at 230,400 bps - both back at 115,200 bps"); break;
 		case ESpSetupNoSave: m = _S("The modem would not save 230,400 bps - both back at 115,200 bps"); break;
 		default: m = _S("230,400 bps always is off - see PsiBoost.log"); break;
@@ -1776,20 +2039,28 @@ void CSpAppUi::OtherEndL()
 	if (NotNow())
 		return;
 	TInt end = iSettings.iOtherEnd;
-	CEikDialog* d = new(ELeave) CSpEndDialog(end, iSettings.iAlways);
+	CEikDialog* d = new(ELeave) CSpEndDialog(end, iSettings.iAlways, EFalse);
 	if (!d->ExecuteLD(R_SP_END_DIALOG) || end == iSettings.iOtherEnd)
 		return;
-	iSettings.iOtherEnd = end;
+	SetOtherEnd(end);
+	}
+
+// the other end chosen (Speed > The other end, or the welcome): saved, the
+// helper told, and the page's last line says what next
+void CSpAppUi::SetOtherEnd(TInt aEnd)
+	{
+	iSettings.iOtherEnd = aEnd;
 	SaveSettings();
 	if (iS)
 		{
-		iS->iNoModem = end;
+		iS->iNoModem = aEnd;
 		iS->iModemSpeed = KSpModemNotLooked;
 		}
-	if (!end)
+	if (!aEnd)
 		StartCheck();
-	SetLast(end ? _L("The other end is a computer or other device - PsiBoost sends it no AT commands")
-	            : _L("The other end is a modem"));
+	SetLast(aEnd ? _L("The other end is a computer - PsiBoost sends it no AT commands")
+	             : _L("The other end is a modem - PsiBoost tells it the speed"));
+	ButtonStates();
 	iView->DrawNow();
 	}
 
@@ -1838,13 +2109,6 @@ void CSpAppUi::StartTestL()
 	{
 	if (NotNow())
 		return;
-	if (NoModem())
-		{
-		// (each half tells the modem its speed: with no modem the other end
-		// would have to be changed by hand halfway through)
-		iEikonEnv->InfoMsg(_L("Not available - the test needs a modem (Speed > The other end)"));
-		return;
-		}
 	if (!iS)
 		{
 		HelperMissing(KErrNotReady);
@@ -1852,10 +2116,31 @@ void CSpAppUi::StartTestL()
 		}
 	if (iSettings.iTestRoute < 0)
 		iSettings.iTestRoute = iRoute == 1 ? 1 : 0;   // (as Connection settings, the first time)
-	CEikDialog* d = new(ELeave) CSpTestDialog(iSettings);
+	TInt only = 0;
+	CEikDialog* d = new(ELeave) CSpTestDialog(iSettings, only, NoModem(), iSettings.iAlways);
 	if (!d->ExecuteLD(R_SP_TEST_DIALOG))
 		return;
 	SaveSettings();
+	iTestOnly = only;
+	iS->iTestOnly = only;
+	{
+	// (written by PsiBoost itself as well as by the helper: if the helper
+	// never takes the test up, the log still says it was asked for)
+	TBuf8<64> host;
+	TInt base = 7100;
+	SplitServer(iSettings.iTestHost, host, base);
+	TBuf<64> h;
+	h.Copy(host);
+	TBuf<240> m(_L("Test the speed asked for: "));
+	m.Append(only == 115200 ? _L("115,200 bps only") : only == 230400 ? _L("230,400 bps only") : _L("both speeds"));
+	m.Append(iSettings.iTestRoute == 1 ? _L(", Psion Internet") : _L(", the modem route"));
+	if (iSettings.iTestServer == ESpServerOwn)
+		m.AppendFormat(_L(", your own server %S, base port %d"), &h, base);
+	else
+		m.Append(_L(", public servers"));
+	m.AppendFormat(_L(", %d s each leg"), KTestSecs[iSettings.iTestLen >= 0 && iSettings.iTestLen <= 2 ? iSettings.iTestLen : 0]);
+	AppLog(m);
+	}
 	// (the request first: a helper started now finds it waiting)
 	iS->iAuto = iSettings.iAlways;
 	iS->iTestRoute = iSettings.iTestRoute;
@@ -1876,6 +2161,9 @@ void CSpAppUi::StartTestL()
 	if (r != KErrNone)
 		{
 		iS->iTestState = ESpTestIdle;
+		TBuf<80> m;
+		m.Format(_L("Test the speed: not run - PsiBoost's helper is not running (%d)"), r);
+		AppLog(m);
 		HelperMissing(r);
 		return;
 		}
@@ -1885,14 +2173,49 @@ void CSpAppUi::StartTestL()
 	ButtonStates();
 	}
 
-// the helper has finished a test: the results kept and shown
+// now, as seconds since 1 Jan 2000 (local time), for the results' columns
+static TTime Since2000() { return TTime(TDateTime(2000, EJanuary, 0, 0, 0, 0, 0)); }
+
+static TInt NowSecs()
+	{
+	TTime now;
+	now.HomeTime();
+	TTimeIntervalSeconds secs;
+	if (now.SecondsFrom(Since2000(), secs) != KErrNone || secs.Int() <= 0)
+		return 0;
+	return secs.Int();
+	}
+
+// "20 Oct 14:32"
+static void WhenText(TDes& aText, TInt aSecs)
+	{
+	TTime t = Since2000();
+	t += TTimeIntervalSeconds(aSecs);
+	TDateTime d = t.DateTime();
+	_LIT(KMonths, "JanFebMarAprMayJunJulAugSepOctNovDec");
+	const TDesC& months = KMonths;
+	TPtrC month = months.Mid(Min((TInt)d.Month(), 11) * 3, 3);
+	aText.Format(_L("%d %S %02d:%02d"), d.Day() + 1, &month, d.Hour(), d.Minute());
+	}
+
+// the helper has finished a test: the results kept and shown. At one speed
+// only, that column alone changes (the other keeps its last result), and the
+// verdict compares the two when both have passed
 void CSpAppUi::TestDone()
 	{
 	iTesting = EFalse;
+	if (!iSettings.iResDone)
+		{
+		iSettings.iRes[0][0] = iSettings.iRes[1][0] = -1;
+		iSettings.iResAt[0] = iSettings.iResAt[1] = 0;
+		iSettings.iResPass = 0;
+		}
 	iSettings.iResDone = 1;
-	iSettings.iResPass = iS->iTestPass;
+	TInt bits = iS->iTestPass, now = NowSecs();
 	for (TInt h = 0; h < 2; h++)
 		{
+		if (iTestOnly && (iTestOnly == 230400) != (h == 1))
+			continue;
 		const TSpHalf& half = iS->iTestHalf[h];
 		TInt* r = iSettings.iRes[h];
 		r[0] = half.iDone ? (TInt)half.iDownRate : -1;
@@ -1901,11 +2224,35 @@ void CSpAppUi::TestDone()
 		r[3] = half.iStalls;
 		r[4] = half.iBad;
 		r[5] = half.iDrops;
+		iSettings.iResAt[h] = half.iDone ? now : 0;
+		TInt bit = 2 << h;
+		iSettings.iResPass = (iSettings.iResPass & ~bit) | (bits & bit);
 		}
+	TBool pass = (bits & 1) != 0;
 	iSettings.iVerdict.Copy(iS->iTestVerdict.Left(Min(iS->iTestVerdict.Length(), iSettings.iVerdict.MaxLength())));
+	// one speed passed, and the other column passed last time: the two compared
+	TInt d115 = iSettings.iRes[0][0], d230 = iSettings.iRes[1][0];
+	if (iTestOnly && pass && (iSettings.iResPass & 6) == 6 && d115 > 0 && d230 > 0)
+		{
+		TInt x10 = d230 * 10 / d115;     // (bytes a second: no overflow)
+		pass = d230 * 4 >= d115 * 5;     // (faster by a quarter at least, as the helper's verdict)
+		if (pass)
+			iSettings.iVerdict.Format(_L8("%d.%d x faster, no errors"), x10 / 10, x10 % 10);
+		else
+			iSettings.iVerdict.Format(_L8("FAIL: no faster at 230,400 bps (%d.%d x the 115,200 bps rate)"), x10 / 10, x10 % 10);
+		}
+	iSettings.iResPass = (iSettings.iResPass & ~1) | (pass ? 1 : 0);
 	SaveSettings();
+	{
+	TBuf<220> m(_L("Test results shown: "));
+	TBuf<200> v;
+	v.Copy(iSettings.iVerdict);
+	m.Append(v.Left(Min(v.Length(), m.MaxLength() - m.Length())));
+	AppLog(m);
+	}
 	RefreshHook();
-	StartCheck();                        // (the modem's speed after the test)
+	if (!iTestOnly && !NoModem())
+		StartCheck();                    // (the modem's speed after the test)
 	iView->ShowResults(ETrue);
 	iView->DrawNow();
 	ButtonStates();
@@ -1929,15 +2276,20 @@ void CSpAppUi::SendLogL()
 	TInt port = 0;
 	if (!link.Load(iCoeEnv->FsSession()) || !link.ProxyUsable() || !link.DevBox(iCoeEnv->FsSession(), host, port))
 		{
+		AppLog(_L("Send log: not available - no proxy set in Connection settings"));
 		iEikonEnv->InfoMsg(_L("Not available - set a proxy in Connection settings"));
 		return;
 		}
+	TBuf<100> m;
+	m.Format(_L("Send log asked for: to the proxy %S:%d"), &host, port);
+	AppLog(m);
 	}
 	iS->iLogReq++;
 	TInt r = EnsureHelper();
 	if (r != KErrNone)
 		{
 		iS->iLogDone = iS->iLogReq;
+		AppLog(_L("Send log: not sent - PsiBoost's helper is not running"));
 		HelperMissing(r);
 		return;
 		}
@@ -2014,14 +2366,29 @@ void CSpAppUi::ShowLogL()
 	(new(ELeave) CSpLogDialog(text))->ExecuteLD(R_SP_LOG_DIALOG);
 	}
 
-// The first time PsiBoost opens: what it has been tested on, and to back up
-// C: first. Remembered in PsiBoost.ini, so it shows once (Help has it too).
-void CSpAppUi::WarnL()
+// The first time PsiBoost opens: the welcome (what it has been tested on,
+// and to back up C: first), then what is on the other end of the serial
+// cable. Neither page has Cancel, and Esc does not get out of them: closing
+// the program from the list of open files and programs leaves PsiBoost.ini
+// as it was, so they come again next time. Upgrading from 0.23 or earlier:
+// the welcome and the question again, unless the other end is known
+// already (a computer chosen, or 230,400 bps always on with a modem that
+// answered). PsiBoost.ini field 1 becomes 2 once the other end is chosen.
+void CSpAppUi::WelcomeL()
 	{
-	iSettings.iWarned = 1;
+	TBool ask = !iSettings.iOtherEnd && !iSettings.iAlways;
+	if (!iSettings.iWarned || ask)
+		(new(ELeave) CSpWelcomeDialog)->ExecuteLD(R_SP_WELCOME_DIALOG);
+	if (ask)
+		{
+		TInt end = iSettings.iOtherEnd;
+		(new(ELeave) CSpEndDialog(end, EFalse, ETrue))->ExecuteLD(R_SP_SETUP_DIALOG);
+		iSettings.iWarned = 2;
+		SetOtherEnd(end);                // (saves)
+		return;
+		}
+	iSettings.iWarned = 2;
 	SaveSettings();
-	CEikDialog* d = new(ELeave) CEikDialog;
-	d->ExecuteLD(R_SP_WARN_DIALOG);
 	}
 
 // Tools > Restart the Psion: a soft reset, as the reset button
@@ -2030,7 +2397,7 @@ void CSpAppUi::RestartL()
 	if (NotNow())
 		return;
 	TBool back = iSettings.iAlways && iHookOpen;
-	if (!iEikonEnv->QueryWinL(back ? _L("Every program closes - the hook goes back in as the Psion starts")
+	if (!iEikonEnv->QueryWinL(back ? _L("Every program closes - 230,400 bps comes back on as the Psion starts")
 	                               : _L("Every program closes - the files stay"), _L("Restart the Psion?")))
 		return;
 	SaveSettings();
@@ -2051,7 +2418,7 @@ void CSpAppUi::DoTick()
 	if (iWarnPending)
 		{
 		iWarnPending = EFalse;           // (first: the dialog runs the timer again)
-		TRAPD(r, WarnL());
+		TRAPD(r, WelcomeL());
 		(void)r;
 		}
 	TBool redraw = EFalse;
@@ -2090,7 +2457,10 @@ void CSpAppUi::DoTick()
 				iHelperOpen = EFalse;
 				}
 			if (iTesting && iS->iTestState == ESpTestRunning)
+				{
 				iS->iTestState = ESpTestIdle;    // (the helper ended: no test)
+				AppLog(_L("Test the speed: PsiBoost's helper ended before the test did"));
+				}
 			TBool waiting = iBusy != ESpIdle;
 			HelperStopped();
 			if (waiting && iS->iDriver != KErrNone)
@@ -2107,6 +2477,9 @@ void CSpAppUi::DoTick()
 			iBusy = ESpIdle;
 			iEikonEnv->BusyMsgCancel();
 			iEikonEnv->InfoMsg(iLast);
+			TBuf<120> m(iS->iLogOk ? _L("Send log: sent - ") : _L("Send log: not sent - "));
+			m.Append(iLast.Left(Min(iLast.Length(), m.MaxLength() - m.Length())));
+			AppLog(m);
 			}
 		if (iTesting && iS->iTestState == ESpTestDone)
 			TestDone();
@@ -2160,11 +2533,6 @@ void CSpAppUi::TileState(TInt aTile, TDes& aText, TBool& aOn, TBool& aDimmed) co
 		aOn = iTesting;
 		if (iTesting && iS)
 			aText.Copy(iS->iTestNow.Left(Min(iS->iTestNow.Length(), aText.MaxLength())));
-		else if (NoModem())
-			{
-			aDimmed = ETrue;
-			aText = _L("Needs a modem");
-			}
 		else if (iSettings.iResDone && iSettings.iVerdict.Length())
 			{
 			aText.Copy(iSettings.iVerdict.Left(Min(iSettings.iVerdict.Length(), aText.MaxLength())));
@@ -2174,6 +2542,17 @@ void CSpAppUi::TileState(TInt aTile, TDes& aText, TBool& aOn, TBool& aDimmed) co
 			}
 		else
 			aText = _L("Not tested yet");
+		// (your own server: which, so it can be seen before a test)
+		if (!iTesting && iSettings.iTestServer == ESpServerOwn && iSettings.iTestHost.Length())
+			{
+			TBuf<64> h;
+			h.Copy(iSettings.iTestHost.Left(Min(iSettings.iTestHost.Length(), h.MaxLength())));
+			if (aText.Length() + 14 + h.Length() <= aText.MaxLength())
+				{
+				aText.Append(_L(" - server "));
+				aText.Append(h);
+				}
+			}
 		return;
 		}
 	if (aTile == ESpTileFree)
@@ -2244,11 +2623,11 @@ void CSpAppUi::StatusTexts(TDes& aAlways, TDes& aHook, TDes& aLast) const
 // the results page's words: the verdict, then five rows of three cells
 void CSpAppUi::ResultTexts(TDes& aVerdict, TSpCell* aCells, TBool& aPass) const
 	{
-	aPass = iSettings.iResPass != 0;
+	aPass = (iSettings.iResPass & 1) != 0;
 	aVerdict.Copy(iSettings.iVerdict.Left(Min(iSettings.iVerdict.Length(), aVerdict.MaxLength())));
 	if (!iSettings.iResDone)
 		aVerdict = _L("Not tested yet");
-	for (TInt i = 0; i < 15; i++)
+	for (TInt i = 0; i < KResCells; i++)
 		aCells[i] = _L("-");
 	if (!iSettings.iResDone)
 		return;
@@ -2275,6 +2654,12 @@ void CSpAppUi::ResultTexts(TDes& aVerdict, TSpCell* aCells, TBool& aPass) const
 		}
 	if (ranA && ranB && a[2] > 0 && b[2] > 0)
 		Grouped(aCells[8], b[2] - a[2], KMs);
+	// (0.24) when each column was run
+	if (ranA && iSettings.iResAt[0])
+		WhenText(aCells[15], iSettings.iResAt[0]);
+	if (ranB && iSettings.iResAt[1])
+		WhenText(aCells[16], iSettings.iResAt[1]);
+	aCells[17].Zero();
 	}
 
 // ----- commands -------------------------------------------------------------------

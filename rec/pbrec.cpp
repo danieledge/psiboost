@@ -130,7 +130,7 @@ static void PutHookBack(RFs& aFs, const TDesC& aFolder)
 	TInt r = User::LoadLogicalDevice(KPbHookFile);
 	if (r != KErrNone && r != KErrAlreadyExists)
 		{
-		m.Format(_L8("the hook's driver did not load (%d): nothing done"), r);
+		m.Format(_L8("230,400 bps not turned on - its driver did not load (%d)"), r);
 		Log(aFs, aFolder, m);
 		return;
 		}
@@ -138,14 +138,14 @@ static void PutHookBack(RFs& aFs, const TDesC& aFolder)
 	r = hook.Open();
 	if (r != KErrNone)
 		{
-		m.Format(_L8("the hook's driver did not open (%d): nothing done"), r);
+		m.Format(_L8("230,400 bps not turned on - its driver did not open (%d)"), r);
 		Log(aFs, aFolder, m);
 		return;
 		}
 	if (((TUint)hook.Version() >> 16) != (TUint)KPbHookMagic)
 		{
 		hook.Close();
-		Log(aFs, aFolder, _L8("the hook's driver is not the expected one: nothing done"));
+		Log(aFs, aFolder, _L8("230,400 bps not turned on - its driver is not the expected one"));
 		return;
 		}
 	TUint32 factory = 0;
@@ -156,12 +156,12 @@ static void PutHookBack(RFs& aFs, const TDesC& aFolder)
 		{
 		r = hook.Install(factory);
 		if (r == KErrNone)
-			m = _L8("the hook is on: 115,200 bps becomes 230,400 bps");
+			m = _L8("230,400 bps always is on again");
 		else
-			m.Format(_L8("the hook was not installed (%d): nothing written"), r);
+			m.Format(_L8("230,400 bps not turned on (%d) - nothing was changed"), r);
 		}
 	else if (found == EPbForeign)
-		m = _L8("the serial port is hooked by another driver: nothing done");
+		m = _L8("230,400 bps not turned on - another program has changed the serial port");
 	else
 		m = _L8("the serial port's driver was not found: nothing done");
 	hook.Close();

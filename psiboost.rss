@@ -10,6 +10,7 @@ NAME PBST
 #include <eikdialg.hrh>
 #include <eikedwin.rh>
 #include <eikchlst.rh>
+#include <eikmfne.rh>
 #include <eikcmbut.rh>
 #include <eiklabel.rh>
 #include <eikctrls.hrh>
@@ -148,30 +149,43 @@ RESOURCE MENU_PANE r_sp_tools_menu
 		};
 	}
 
-// Tools > Test the speed: 115200 and then 230400, back to back, on one
-// route against one server
+// Tools > Test the speed: at 115200 only or 230400 only, as the line is
+// now (nothing changed), or both, back to back (the modem told each speed);
+// on one route against one server
 RESOURCE DIALOG r_sp_test_dialog
 	{
 	title="Test the speed";
-	flags=EEikDialogFlagWait;
+	flags=EEikDialogFlagWait|EEikDialogFlagButtonsRight;
 	buttons=R_EIK_BUTTONS_CANCEL_OK;
 	items=
 		{
+		DLG_LINE { type=EEikCtChoiceList; prompt="Speed"; id=ESpDlgTestSpeed;
+			control=CHOICELIST { array_id=r_sp_speed_array; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgTestNote; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			reserve_length=70; txt="As the line is now: 230,400 bps always must be off"; }; },
 		DLG_LINE { type=EEikCtChoiceList; prompt="Route"; id=ESpDlgTestRoute;
 			control=CHOICELIST { array_id=r_sp_route_array; }; },
-		DLG_LINE { type=EEikCtChoiceList; prompt="Server"; id=ESpDlgTestServer;
-			control=CHOICELIST { array_id=r_sp_server_array; }; },
 		DLG_LINE { type=EEikCtChoiceList; prompt="Length"; id=ESpDlgTestLength;
 			control=CHOICELIST { array_id=r_sp_length_array; }; },
-		DLG_LINE { type=EEikCtEdwin; prompt="Server address"; id=ESpDlgTestHost;
-			control=EDWIN { width=20; maxlength=60; }; },
-		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
-			txt="115,200 bps first, then 230,400 bps: a download and an echo at each"; }; }
+		DLG_LINE { type=EEikCtChoiceList; prompt="Server"; id=ESpDlgTestServer;
+			control=CHOICELIST { array_id=r_sp_server_array; }; },
+		DLG_LINE { type=EEikCtEdwin; prompt="Server name or address"; id=ESpDlgTestHost;
+			control=EDWIN { width=16; maxlength=50; }; },
+		DLG_LINE { type=EEikCtNumberEditor; prompt="Base port"; id=ESpDlgTestPort;
+			control=NUMBER_EDITOR { min=0; max=65000; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgTestPorts; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			reserve_length=70; txt="Echo 7107 and chargen 7119, as server/stdsvc.py with base port 7100"; }; }
 		};
 	}
 
-// Speed > The other end: a modem (told the speed by AT), or a computer or
-// other device whose speed is set by hand (the hook only, no AT)
+RESOURCE ARRAY r_sp_speed_array
+	{
+	items={ LBUF { txt="115,200 bps"; }, LBUF { txt="230,400 bps"; }, LBUF { txt="Both (the modem changes speed)"; } };
+	}
+
+// What is on the other end of the serial cable: a modem (told the speed by
+// AT commands), or a computer or other device whose speed is set by hand
+// (the hook only, no AT). Speed > The other end...
 RESOURCE DIALOG r_sp_end_dialog
 	{
 	title="The other end";
@@ -179,18 +193,48 @@ RESOURCE DIALOG r_sp_end_dialog
 	buttons=R_EIK_BUTTONS_CANCEL_OK;
 	items=
 		{
-		DLG_LINE { type=EEikCtChoiceList; prompt="On the serial port"; id=ESpDlgOtherEnd;
+		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="What is on the other end of the Psion's serial cable?"; }; },
+		DLG_LINE { type=EEikCtChoiceList; prompt="The other end"; id=ESpDlgOtherEnd;
 			control=CHOICELIST { array_id=r_sp_end_array; }; },
 		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
-			txt="A modem is told 230,400 bps by AT commands"; }; },
+			txt="A modem answers AT commands: the PsiConnect Wi-Fi modem, a dial-up modem, a phone"; }; },
 		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
-			txt="A computer or other device gets no AT: set its port to 230,400 bps yourself"; }; }
+			txt="A computer does not: a serial cable or a USB serial adapter, running pppd or similar"; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndNext; control=LABEL { reserve_length=50; txt="-"; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndHow; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			reserve_length=80; txt="-"; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndLater; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			reserve_length=60; txt="You can change this later in Speed > The other end"; }; }
+		};
+	}
+
+// ...and the same as the welcome's second page, the first time PsiBoost
+// opens: Continue only, and Esc does not get out of it (OkToExitL)
+RESOURCE DIALOG r_sp_setup_dialog
+	{
+	title="Set up PsiBoost";
+	flags=EEikDialogFlagWait|EEikDialogFlagNotifyEsc;
+	buttons=R_EIK_BUTTONS_CONTINUE;
+	items=
+		{
+		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="What is on the other end of the Psion's serial cable?"; }; },
+		DLG_LINE { type=EEikCtChoiceList; prompt="The other end"; id=ESpDlgOtherEnd;
+			control=CHOICELIST { array_id=r_sp_end_array; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			txt="A modem answers AT commands: the PsiConnect Wi-Fi modem, a dial-up modem, a phone"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			txt="A computer does not: a serial cable or a USB serial adapter, running pppd or similar"; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndNext; control=LABEL { reserve_length=50; txt="-"; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndHow; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			reserve_length=80; txt="-"; }; },
+		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndLater; control=LABEL { standard_font=EEikLabelFontAnnotation;
+			reserve_length=60; txt="You can change this later in Speed > The other end"; }; }
 		};
 	}
 
 RESOURCE ARRAY r_sp_end_array
 	{
-	items={ LBUF { txt="A modem"; }, LBUF { txt="A computer or other device"; } };
+	items={ LBUF { txt="A Wi-Fi or dial-up modem"; }, LBUF { txt="A computer or other device"; } };
 	}
 
 RESOURCE ARRAY r_sp_route_array
@@ -254,17 +298,19 @@ RESOURCE DIALOG r_sp_log_dialog
 		};
 	}
 
-// The first time PsiBoost opens (once: PsiBoost.ini remembers it)
-RESOURCE DIALOG r_sp_warn_dialog
+// The first time PsiBoost opens, the welcome's first page (then
+// r_sp_setup_dialog): Continue only, and Esc does not get out of it
+RESOURCE DIALOG r_sp_welcome_dialog
 	{
-	title="Before you use PsiBoost";
-	flags=EEikDialogFlagWait;
+	title="Welcome to PsiBoost";
+	flags=EEikDialogFlagWait|EEikDialogFlagNotifyEsc;
 	buttons=R_EIK_BUTTONS_CONTINUE;
 	items=
 		{
-		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="Only tested on a Psion Series 5mx, ROM 1.05(260),"; }; },
-		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="with the PsiConnect Wi-Fi modem"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="PsiBoost runs the serial port at 230,400 bps, twice as fast"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="Only tested on a Psion Series 5mx, ROM 1.05(260), with the PsiConnect Wi-Fi modem"; }; },
 		DLG_LINE { type=EEikCtLabel; control=LABEL { txt="Back up the Internal disk (C:) before you use it"; }; },
-		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="If it works on another Psion or modem, say so at github.com/danieledge/psiboost"; }; }
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="If it works on another Psion or modem, say so at github.com/danieledge/psiboost"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="Next: what is on the other end of the serial cable"; }; }
 		};
 	}

@@ -1,4 +1,4 @@
-; PsiBoost 0.23 for the Psion Series 5mx, ROM 1.05(260). Early beta.
+; PsiBoost 0.24 for the Psion Series 5mx, ROM 1.05(260). Early beta.
 ; Every program's serial port at 230400: the program, its helper, the UART
 ; driver (PBUART21.LDD, for the helper's reads of the UART's registers), the
 ; hook (PBHOOK20.LDD) and the recogniser that puts the hook back at start-up
@@ -6,7 +6,7 @@
 ; disk the rest goes on: take the card out and restart, and it is gone.
 ; Built by build.sh into build/pkg/.
 &EN
-#{"PsiBoost"},(0x01000A94),0,23,0
+#{"PsiBoost"},(0x01000A94),0,24,0
 "psiboost.app"-"!:\System\Apps\PsiBoost\PsiBoost.app"
 "psiboost.rsc"-"!:\System\Apps\PsiBoost\PsiBoost.rsc"
 "psiboost.aif"-"!:\System\Apps\PsiBoost\PsiBoost.aif"

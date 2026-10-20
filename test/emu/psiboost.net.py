@@ -62,3 +62,29 @@ def test_boostsetup(ctx):
 
 
 TESTS['boostsetup'] = test_boostsetup
+
+
+# (0.24) The link test at one speed only: 115,200 bps on the modem route, as
+# the line is (230400 always is off on this card), against hostmodem and
+# server/stdsvc.py. Nothing changes speed: no AT$SB, no hook. Only the
+# 115,200 bps column is written; the card's older 230,400 bps result stays.
+#   python3 server/stdsvc.py --host 127.0.0.1 &
+#   python3 core/tools/emu/net.py boostone
+def test_boostone(ctx):
+    os.environ['HOSTMODEM_S12'] = '1'
+    try:
+        log = ctx.modem('boostone')
+    finally:
+        del os.environ['HOSTMODEM_S12']
+    card = os.path.join(WORK, 'boostone.img')
+    make_card('psiboosttestone', card, 'EMU_PKG_BOOST')
+    # (Tools > Test the speed..., then OK: the speed offered is 115,200 bps)
+    s = Script(62).key(148).key(15).key(15).key(15).key(ENTER)
+    s.wait(3).key(ENTER)
+    out = emulate('boostone', card, ctx.sock, s, secs=200)
+    ok = (grep(log, 'ATDT127.0.0.1:7119') and grep(log, 'ATDT127.0.0.1:7107')
+          and not grep(log, '[cmd: $SB=') and not grep(log, '[cmd: &W]'))
+    return ok, out
+
+
+TESTS['boostone'] = test_boostone

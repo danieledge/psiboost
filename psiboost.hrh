@@ -16,7 +16,7 @@ enum TSpCommands
 	ESpCmdResults,              // Tools > Last test results (Shift+Ctrl+L)
 	ESpCmdRestart,              // Tools > Restart the Psion...
 	ESpCmdShowLog,              // Tools > Show log...
-	ESpCmdOtherEnd              // Speed > The other end... (0.23: a modem, or a computer: no AT)
+	ESpCmdOtherEnd              // Speed > The other end... (0.23: a modem, or a computer: no AT; 0.24 also the welcome's second page)
 	};
 
 enum TSpDialogIds
@@ -31,7 +31,14 @@ enum TSpDialogIds
 	ESpDlgTestLength,
 	ESpDlgTestHost,
 	ESpDlgLogText,
-	ESpDlgOtherEnd
+	ESpDlgOtherEnd,
+	ESpDlgTestSpeed,            // (0.24) the test's speeds: 115200 only, 230400 only, both
+	ESpDlgTestNote,             // ...and what the choice needs
+	ESpDlgTestPort,             // (0.24) your own server's base port (as stdsvc.py --base)
+	ESpDlgTestPorts,            // ...and the ports that makes
+	ESpDlgEndNext,              // (0.24) the other end: what happens next
+	ESpDlgEndHow,               // ...in a little more detail
+	ESpDlgEndLater              // ...and how to change it later
 	};
 
 #endif

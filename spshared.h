@@ -88,7 +88,7 @@ struct TSpShared
 	// ---- the app (these eight never move) ----
 	volatile TInt iAuto;                     // 230400 always (as PsiBoost.ini says)
 	volatile TInt iNoModem;                  // (0.23) the other end is not a modem: the hook only, no AT
-	volatile TInt iSpare2;
+	volatile TInt iTestOnly;                 // (0.24) the link test at one speed only: 115200 or 230400 (0: both, the modem changing speed)
 	volatile TInt iSpare3;
 	volatile TInt iQuit;                     // the helper should end now
 	volatile TUint iAppSeq;                  // + 1 when any of the above changes
@@ -113,7 +113,7 @@ struct TSpShared
 	volatile TInt iTestStop;                 // the app asks it to stop now
 	// ---- ...and its results, from the helper ----
 	volatile TInt iTestState;                // TSpTestState
-	volatile TInt iTestPass;                 // 1 PASS, 0 FAIL (when done)
+	volatile TInt iTestPass;                 // when done: bit 0 PASS (else FAIL), bit 1 the 115200 half passed, bit 2 the 230400 half (0.24)
 	TBuf8<100> iTestNow;                     // what it is doing
 	TBuf8<200> iTestVerdict;                 // the verdict line
 	TSpHalf iTestHalf[2];                    // at 115200, at 230400

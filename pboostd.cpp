@@ -47,7 +47,7 @@ const TInt KPortWaitSecs = 20;               // Psion Internet letting COMM::0 g
 const TInt KStageLinkUp = 1000;              // EIfProgressLinkUp: the 5mx may say this rather than EConnectionOpen (psiglue)
 const TInt KAppGoneMs = 5000;                // no beat from PsiBoost for this long: it has gone
 _LIT(KLogName, "PsiBoost.log");
-_LIT8(KSpVersion8, "0.23");                  // (as psiboost.cpp's)
+_LIT8(KSpVersion8, "0.24");                  // (as psiboost.cpp's)
 // The public servers (Tools > Test the speed, "Public (internet)"), checked
 // on 19 Oct 2026: a 1 MB file over plain HTTP (port 80, no
 // redirect, Content-Length, Range honoured), the second tried if the first
@@ -112,9 +112,9 @@ static void Log(const TDesC8& aLine)
 	TTime t;
 	t.HomeTime();
 	TDateTime d = t.DateTime();
-	TBuf8<200> l;
+	TBuf8<260> l;
 	l.Format(_L8("%02d:%02d:%02d "), d.Hour(), d.Minute(), d.Second());
-	l.Append(aLine.Left(Min(aLine.Length(), 180)));
+	l.Append(aLine.Left(Min(aLine.Length(), 240)));
 	l.Append(_L8("\r\n"));
 	f.Write(l);
 	f.Close();
@@ -240,7 +240,7 @@ static TInt HookSet(TBool aOn)
 	{
 	if (!gHookOpen)
 		{
-		Step(_L8("The hook's driver is not loaded"));
+		Step(_L8("230,400 bps is not available: PsiBoost's driver is not loaded"));
 		return KErrNotReady;
 		}
 	TUint32 f = 0;
@@ -253,7 +253,7 @@ static TInt HookSet(TBool aOn)
 		}
 	if (found == EPbNoFactory)
 		{
-		Step(_L8("The serial port's driver (Comm.Wind2) was not found: the hook cannot go in"));
+		Step(_L8("230,400 bps is not available: the serial port's driver (Comm.Wind2) was not found"));
 		return KErrNotFound;
 		}
 	if (aOn == (found == EPbHooked))
@@ -261,8 +261,8 @@ static TInt HookSet(TBool aOn)
 	TInt r = aOn ? gHook.Install(f) : gHook.Remove(f);
 	if (r != KErrNone)
 		{
-		m.Format(aOn ? _L8("The hook was not put in (%d, factory %08x): nothing was written")
-		             : _L8("The hook was not taken out (%d, factory %08x)"), r, f);
+		m.Format(aOn ? _L8("230,400 bps could not be turned on (%d, factory %08x): nothing was changed")
+		             : _L8("115,200 bps could not be put back (%d, factory %08x): restart the Psion"), r, f);
 		Step(m);
 		return r;
 		}
@@ -518,6 +518,20 @@ static TBool OpenedFast()
 	return HookOn();
 	}
 
+// Test the speed at one speed only: nothing is changed (no speed command,
+// the hook as it is), so the port must already be at that speed: the hook
+// in for 230400, out for 115200. aPort is open (the divider says so on a
+// 5mx; the emulator reads -1, and the hook is asked instead).
+static TBool Only() { return gS->iTestOnly != 0; }
+static TBool AsItIs(TBool aFast)
+	{
+	if (OpenedFast() == aFast)
+		return ETrue;
+	Step(aFast ? _L8("The port is at 115,200 bps, not 230,400 bps: turn 230,400 bps always on first")
+	           : _L8("The port is at 230,400 bps, not 115,200 bps: turn 230,400 bps always off first"));
+	return EFalse;
+	}
+
 // Which speed the modem answers AT at: 115200, 230400, or 0 (nothing
 // answers). First a plain AT at the speed the port opened at (no driver
 // write), then at the other; then (aHangUp) +++ with quiet round it and ATH
@@ -752,7 +766,7 @@ static TInt MoveTo(TSpSerial& aPort, TBool aFast, TBool aSave)
 	TInt d = Divider();
 	if (d >= 0 && d != (aFast ? KDiv230400 : KDiv115200))
 		{
-		m.Format(_L8("The port opened with divider %d, not %d: the hook did not take"), d, aFast ? KDiv230400 : KDiv115200);
+		m.Format(_L8("The port opened at the wrong speed (divider %d, not %d): 230,400 bps did not take"), d, aFast ? KDiv230400 : KDiv115200);
 		Step(m);
 		return ESpSetupNotHooked;
 		}
@@ -781,7 +795,7 @@ static TInt MoveTo(TSpSerial& aPort, TBool aFast, TBool aSave)
 			}
 		}
 	TNum8 rate(want, " bps");
-	m.Format(_L8("The modem and the Psion are at %S%s, the hook %s"), &rate, aSave ? " (saved)" : "", aFast ? "in" : "out");
+	m.Format(_L8("The modem and the Psion are both at %S%s"), &rate, aSave ? " (saved on the modem)" : "");
 	Step(m);
 	return ESpSetupOk;
 	}
@@ -817,15 +831,15 @@ static TInt AlwaysNoModem(TBool aOn)
 			if (d >= 0 && d != KDiv230400)
 				{
 				TBuf8<100> m;
-				m.Format(_L8("The port opened with divider %d, not %d: the hook did not take"), d, KDiv230400);
+				m.Format(_L8("The port opened at the wrong speed (divider %d, not %d): 230,400 bps did not take"), d, KDiv230400);
 				Step(m);
 				HookSet(EFalse);
 				return ESpSetupNotHooked;
 				}
 			}
 		}
-	Step(aOn ? _L8("No modem: the hook is in - set the other end to 230,400 bps")
-	         : _L8("No modem: the hook is out - set the other end back to 115,200 bps"));
+	Step(aOn ? _L8("No modem: 230,400 bps is on - set the other end to 230,400 bps")
+	         : _L8("No modem: back at 115,200 bps - set the other end back to 115,200 bps"));
 	return ESpSetupOk;
 	}
 
@@ -1229,7 +1243,13 @@ static void ModemTest()
 		return;
 		}
 	TBool fast = gR.baud > 115200;
-	if (MoveTo(port, fast, EFalse) != ESpSetupOk)
+	if (Only() && !AsItIs(fast))
+		{
+		gR.divider_ok = 0;                   // (one speed only: the line is not at it)
+		port.Close();
+		return;
+		}
+	if (!Only() && MoveTo(port, fast, EFalse) != ESpSetupOk)
 		{
 		if (fast)
 			gR.divider_ok = 0;               // (the line never got to 230400)
@@ -1361,8 +1381,22 @@ static void SocketLeg(RSocketServ& aSs, TBool aEcho)
 		LegAddress(aEcho, attempt, host, port);
 		TInetAddr a;
 		TInt r = Resolve(aSs, host, a);
+		if (r != KErrNone)
+			{
+			TBuf8<120> m;
+			m.Format(_L8("No address for %S through Psion Internet (%d)"), &host, r);
+			Step(m);
+			}
 		if (r == KErrNone)
+			{
 			r = s.Open(aSs, KAfInet, KSockStream, KProtocolInetTcp);
+			if (r != KErrNone)
+				{
+				TBuf8<80> m;
+				m.Format(_L8("No socket through Psion Internet (%d)"), r);
+				Step(m);
+				}
+			}
 		if (r == KErrNone)
 			{
 			a.SetPort(port);
@@ -1375,6 +1409,12 @@ static void SocketLeg(RSocketServ& aSs, TBool aEcho)
 				m.Format(_L8("No connection to %S:%d through Psion Internet (%d)"), &host, port, r);
 				Step(m);
 				s.Close();
+				}
+			else
+				{
+				TBuf8<100> m;
+				m.Format(_L8("Connected to %S:%d through Psion Internet (%s)"), &host, port, aEcho ? "echo" : Public() ? "download" : "chargen");
+				Log(m);
 				}
 			}
 		if (r == KErrNone && !aEcho && Public())
@@ -1537,14 +1577,21 @@ static TInt PppStart(TBool aFast)
 	TInt r = PortOpen(port, KPortWaitSecs);
 	if (r != KErrNone)
 		return r;
-	if (MoveTo(port, aFast, EFalse) != ESpSetupOk)
+	if (Only() && !AsItIs(aFast))
+		{
+		port.Close();
+		gR.divider_ok = 0;
+		return KErrCouldNotConnect;
+		}
+	if (!Only() && MoveTo(port, aFast, EFalse) != ESpSetupOk)
 		{
 		port.Close();
 		if (aFast)
 			gR.divider_ok = 0;
 		return KErrCouldNotConnect;
 		}
-	if (!loaded || !link.iPppStart.Length())
+	// (no modem: no start command, nothing but Psion Internet's own dial-up)
+	if (!loaded || !link.iPppStart.Length() || gS->iNoModem)
 		{
 		port.Close();
 		return KErrNone;
@@ -1553,7 +1600,7 @@ static TInt PppStart(TBool aFast)
 	cmd.Copy(link.iPppStart.Left(Min(link.iPppStart.Length(), 40)));
 	TBuf8<96> m(_L8("Starting Psion Internet with "));
 	m.Append(cmd);
-	TNum8 rate(gModemSpeed, " bps");
+	TNum8 rate(aFast ? 230400 : 115200, " bps");
 	m.AppendFormat(_L8(" at %S"), &rate);
 	TestNow(m);
 	TBuf8<48> shown(cmd);
@@ -1616,15 +1663,24 @@ static void PppTest()
 		PppStop();
 		}
 	}
-	if (PppStart(gR.baud > 115200) != KErrNone)
+	TInt started = PppStart(gR.baud > 115200);
+	if (started != KErrNone)
 		{
+		TBuf8<100> m;
+		TNum8 rate(gR.baud, " bps");
+		m.Format(_L8("Psion Internet could not be started at %S (%d)"), &rate, started);
+		Log(m);
 		if (gR.divider_ok)
 			gR.drops++;
 		return;
 		}
 	RSocketServ ss;
-	if (ss.Connect() != KErrNone)
+	TInt sr = ss.Connect();
+	if (sr != KErrNone)
 		{
+		TBuf8<80> m;
+		m.Format(_L8("The socket server did not open (%d)"), sr);
+		Step(m);
 		gR.drops++;
 		return;
 		}
@@ -1808,8 +1864,8 @@ static void Settle()
 		}
 	if (r == ESpSetupOk)
 		{
-		Log(always ? _L8("After the test: the modem at 230,400 bps and the hook in, as 230,400 bps always says")
-		           : _L8("After the test: the modem at 115,200 bps and the hook out, as 230,400 bps always says"));
+		Log(always ? _L8("After the test: back at 230,400 bps, as 230,400 bps always says")
+		           : _L8("After the test: back at 115,200 bps, as 230,400 bps always says"));
 		return;
 		}
 	if (!always)
@@ -1830,20 +1886,48 @@ static void RunTest()
 	Mem::FillZ(&gS->iTestHalf[0], sizeof(TSpHalf));
 	Mem::FillZ(&gS->iTestHalf[1], sizeof(TSpHalf));
 	gLastStep.Zero();
-	TBuf8<200> m;
-	m.Format(_L8("Link test on %s, %d s each leg, %s, 230,400 bps always %s"),
+	// (0.24) one speed only: that half, with nothing changed; else both, the
+	// modem told each speed in turn (which needs a modem: PsiBoost asks for
+	// it only then)
+	TInt only = gS->iTestOnly == 115200 || gS->iTestOnly == 230400 ? gS->iTestOnly : 0;
+	gS->iTestOnly = only;
+	TBuf8<300> m;
+	TNum8 onlyRate(only, " bps");
+	m.Format(_L8("Link test on %s, %d s each leg, %s, 230,400 bps always %s, "),
 		gS->iTestRoute ? "Psion Internet" : "the modem route", gS->iTestSecs,
 		Public() ? "public servers" : "your own server", gS->iAuto ? "on" : "off");
+	if (only)
+		m.AppendFormat(_L8("at %S only"), &onlyRate);
+	else
+		m.Append(_L8("both speeds"));
 	if (!Public())
-		m.AppendFormat(_L8(" (%S:%d)"), &gS->iTestHost, gS->iTestBase);
+		{
+		TInt e = gS->iTestBase ? gS->iTestBase + 7 : 7, c = gS->iTestBase ? gS->iTestBase + 19 : 19;
+		m.AppendFormat(_L8(" (%S, base port %d: echo %d, chargen %d)"), &gS->iTestHost, gS->iTestBase, e, c);
+		}
+	if (gS->iNoModem)
+		m.Append(_L8(", the other end a computer"));
 	TestNow(m);
+	if (!only && gS->iNoModem)
+		{
+		gS->iTestVerdict = _L8("Both speeds need a modem that changes speed with AT commands");
+		Log(gS->iTestVerdict);
+		gS->iTestState = ESpTestDone;
+		gS->iHelperSeq++;
+		return;
+		}
 	for (TInt half = 0; half < 2 && !Stopping(); half++)
 		{
+		if (only && (only == 230400) != (half == 1))
+			continue;
 		Mem::FillZ(&gR, sizeof(gR));
 		gR.baud = half ? 230400 : 115200;
 		gR.route = gS->iTestRoute;
 		gR.divider_ok = 1;
-		TestNow(half ? _L8("Now at 230,400 bps: 115,200 bps through the hook") : _L8("First at 115,200 bps, to compare"));
+		if (only)
+			TestNow(half ? _L8("At 230,400 bps only, as the line is now") : _L8("At 115,200 bps only, as the line is now"));
+		else
+			TestNow(half ? _L8("Now at 230,400 bps: 115,200 bps through the hook") : _L8("First at 115,200 bps, to compare"));
 		RunHalf(gS->iTestHalf[half]);
 		if (half)
 			r230 = gR;
@@ -1852,37 +1936,80 @@ static void RunTest()
 			r115 = gR;
 			char why[100];
 			sp_why(&r115, why, sizeof(why));
-			if (why[0])
+			if (why[0] && !only)
 				break;                       // (no point in the second half)
 			}
 		}
 	char text[200];
 	TBool stopped = Stopping();
-	TInt pass = stopped ? 0 : sp_verdict(&r115, &r230, text, sizeof(text));
+	TInt pass = 0;
+	const sp_result& last = only == 115200 ? r115 : r230;
 	if (stopped)
 		gS->iTestVerdict = _L8("Stopped before the end");
 	else
 		{
-		gS->iTestVerdict.Copy(TPtrC8((const TUint8*)text));
-		// failed before any data: the step that failed says why
-		if (!pass && !r230.down_bytes && !r230.echo_bytes && gLastStep.Length())
+		if (only)
 			{
+			// one half: its own line (the app compares it with the other
+			// column's last result, when there is one)
+			char why[100];
+			sp_why(&last, why, sizeof(why));
+			pass = !why[0];
+			if (pass)
+				m.Format(_L8("No errors at %S"), &onlyRate);
+			else
+				m.Format(_L8("FAIL at %S: %s"), &onlyRate, why);
+			gS->iTestVerdict.Copy(m.Left(Min(m.Length(), gS->iTestVerdict.MaxLength())));
+			}
+		else
+			{
+			pass = sp_verdict(&r115, &r230, text, sizeof(text));
+			gS->iTestVerdict.Copy(TPtrC8((const TUint8*)text));
+			}
+		// failed before any data: the step that failed says why (with no
+		// modem, the speed the other end must be at)
+		if (!pass && !last.down_bytes && !last.echo_bytes && (gLastStep.Length() || (only && gS->iNoModem)))
+			{
+			TBuf8<120> why;
+			if (only && gS->iNoModem)
+				why.Format(_L8("the other end must be at %S too"), &onlyRate);
+			else
+				why = gLastStep;
 			TInt room = gS->iTestVerdict.MaxLength() - gS->iTestVerdict.Length() - 3;
 			if (room > 20)
 				{
 				gS->iTestVerdict.Append(_L8(" ["));
-				gS->iTestVerdict.Append(gLastStep.Left(Min(gLastStep.Length(), room)));
+				gS->iTestVerdict.Append(why.Left(Min(why.Length(), room)));
 				gS->iTestVerdict.Append(_L8("]"));
 				}
 			}
 		}
-	gS->iTestPass = pass;
+	// each half's own pass, for the app's results table
+	TInt bits = pass ? 1 : 0;
+	char w[100];
+	if (!stopped && r115.ran)
+		{
+		sp_why(&r115, w, sizeof(w));
+		if (!w[0])
+			bits |= 2;
+		}
+	if (!stopped && r230.ran)
+		{
+		sp_why(&r230, w, sizeof(w));
+		if (!w[0])
+			bits |= 4;
+		}
+	gS->iTestPass = bits;
 	Log(gS->iTestVerdict);
-	TBool quit = gS->iQuit != 0;
-	gS->iQuit = 0;                           // (Settle must run even when asked to end)
-	Settle();
-	if (quit)
-		gS->iQuit = 1;
+	// (one speed only changed nothing: nothing to put back)
+	if (!only)
+		{
+		TBool quit = gS->iQuit != 0;
+		gS->iQuit = 0;                       // (Settle must run even when asked to end)
+		Settle();
+		if (quit)
+			gS->iQuit = 1;
+		}
 	gS->iTestState = ESpTestDone;
 	gS->iHelperSeq++;
 	}
@@ -1890,17 +2017,25 @@ static void RunTest()
 // ----- the loop -------------------------------------------------------------------
 static void Run()
 	{
-	TUint appBeat = gS->iAppBeat, appBeatAt = User::TickCount();
+	// (PsiBoost's beat, twice a second while it is open. The time since the
+	// last one is added up a loop at a time, each loop counting 1 s at most:
+	// a Psion switched off and on again is not taken for PsiBoost gone)
+	TUint appBeat = gS->iAppBeat, loopAt = User::TickCount(), quiet = 0;
 	// (a test asked for as the helper was started: run it first)
 	TUint testSeen = gS->iTestReq - (gS->iTestState == ESpTestRunning ? 1 : 0);
 	for (;;)
 		{
 		Tick();
 		TBool on = gS->iUartOn != 0;
+		{
+		TUint step = Ms(loopAt);
+		loopAt = User::TickCount();
+		quiet += step < 1000 ? step : 1000;
+		}
 		if (gS->iAppBeat != appBeat)
 			{
 			appBeat = gS->iAppBeat;
-			appBeatAt = User::TickCount();
+			quiet = 0;
 			}
 		if (gS->iSetupReq != gS->iSetupDone)
 			{
@@ -1946,10 +2081,15 @@ static void Run()
 			}
 		// the end: asked to, or PsiBoost has closed (or died) and nothing is
 		// left to do (a test keeps it running until the app has seen the result)
-		TBool appOpen = gS->iAppOpen && Ms(appBeatAt) < (TUint)KAppGoneMs;
+		TBool appOpen = gS->iAppOpen && quiet < (TUint)KAppGoneMs;
 		TBool idle = !appOpen && gS->iTestState != ESpTestRunning;
 		if (gS->iQuit || idle)
+			{
+			Log(gS->iQuit ? _L8("PsiBoost's helper asked to end")
+			    : !gS->iAppOpen ? _L8("PsiBoost has closed: its helper ends")
+			    : _L8("No word from PsiBoost for 5 s: its helper ends"));
 			break;
+			}
 		User::After(on ? KTickUs : KIdleTickUs);
 		}
 	}
