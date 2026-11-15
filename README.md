@@ -18,6 +18,32 @@ Runs the **Psion Series 5mx**'s serial port at **230,400 bps** instead of 115,20
 
 PsiBoost is part of the [PsiTerm suite](https://github.com/danieledge/psiterm) (PsiTerm, PsiMail, PsiWeb, PsiCast) and uses its shared code, [psion-core](https://github.com/danieledge/psion-core).
 
+## What's new in 0.26
+
+Since 0.24, the last release.
+
+- On the netBook and Series 7, PsiBoost installs but does nothing: it is for the 5mx's serial port and ROM only (see *Other Psions*). The other programs in the suite now run on those machines.
+- The program icon is in colour on a colour screen. The 5mx shows it in greys.
+- Fixed: 0.25 (a test build) restarted its helper every time PsiBoost was opened, because the two disagreed on the version.
+
+## Screenshots
+
+PsiBoost 0.26 on the netBook and the Series 5mx, in emulators. Tap or click one to see it full size.
+
+<table>
+<tr><th>netBook</th><th>Series 5mx</th></tr>
+<tr><td colspan="2"><b>The first start</b></td></tr>
+<tr>
+<td><a href="docs/img/netbook-psiboost-welcome.png"><img src="docs/img/netbook-psiboost-welcome.png" alt="netBook: the Welcome to PsiBoost dialog" width="400"></a></td>
+<td><a href="docs/img/5mx-psiboost-welcome.png"><img src="docs/img/5mx-psiboost-welcome.png" alt="Series 5mx: the Welcome to PsiBoost dialog" width="400"></a></td>
+</tr>
+<tr><td colspan="2"><b>After set-up: on the netBook it says it is for the 5mx only</b></td></tr>
+<tr>
+<td><a href="docs/img/netbook-psiboost-main.png"><img src="docs/img/netbook-psiboost-main.png" alt="netBook: PsiBoost's main screen" width="400"></a></td>
+<td><a href="docs/img/5mx-psiboost-main.png"><img src="docs/img/5mx-psiboost-main.png" alt="Series 5mx: PsiBoost's main screen" width="400"></a></td>
+</tr>
+</table>
+
 ## What you need
 
 - A **Psion Series 5mx with ROM 1.05(260)**. On anything else PsiBoost does nothing (see *Other Psions*).
