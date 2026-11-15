@@ -1,0 +1,16 @@
+// PBCTL.MMP - PsiBoost.ctl, PsiBoost in the Control panel (built as pbctl.dll)
+TARGET        pbctl.dll
+TARGETTYPE    dll
+UID           0x10000297 0x01000AD1
+
+PROJECT       ptproj
+SUBPROJECT    pboostctl
+
+SOURCE        pbctl.cpp
+RESOURCE      pbctl.rss
+
+USERINCLUDE   \ptproj\pboostctl \ptproj\psiboost
+SYSTEMINCLUDE \epoc32\include
+
+LIBRARY       euser.lib efsrv.lib cone.lib eikon.lib apparc.lib apgrfx.lib ws32.lib
+EXPORTUNFROZEN

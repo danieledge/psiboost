@@ -45,11 +45,12 @@
 #include "spshared.h"
 #include "pbhook.h"
 #include "spicons.h"                     // (made by mktbar.py: PsiBoost.mbm's pictures)
+#include "pbcmd.h"                       // (0.27) what PsiBoost in the Control panel asks for
 #define PSILINK_STRUCT_ONLY
 #include "psilink.h"                     // (psion-core: Connection settings)
 
-_LIT(KVersion, "0.26");                  // also psiboost.pkg, pboostd.cpp and KVersion8
-_LIT8(KVersion8, "0.26");                // the helper's (pboostd.cpp KSpVersion8): must match
+_LIT(KVersion, "0.27");                  // also psiboost.pkg, pboostd.cpp and KVersion8
+_LIT8(KVersion8, "0.27");                // the helper's (pboostd.cpp KSpVersion8): must match
 const TUid KUidPsiBoost = { 0x01000A94 };
 _LIT(KIniName, "PsiBoost.ini");
 _LIT(KLogName, "PsiBoost.log");
@@ -226,7 +227,17 @@ public:
 	void StatusTexts(TDes& aAlways, TDes& aHook, TDes& aLast) const;
 	void ResultTexts(TDes& aVerdict, TSpCell* aCells, TBool& aPass) const;
 	void HandleCommandL(TInt aCommand);
+	// (0.27) a command from PsiBoost in the Control panel (pbcmd.h), as the
+	// tail when it starts PsiBoost
+	TBool ProcessCommandParametersL(TApaCommand aCommand, TFileName& aDocumentName, const TDesC8& aTail)
+		{
+		iPendingCmd |= PbCmdFromTail(aTail);
+		return CEikAppUi::ProcessCommandParametersL(aCommand, aDocumentName, aTail);
+		}
+protected:
+	void HandleWsEventL(const TWsEvent& aEvent, CCoeControl* aDestination);
 private:
+	void DoPendingL();
 	void DynInitMenuPaneL(TInt aResourceId, CEikMenuPane* aMenuPane);
 	void LoadSettings();
 	void SaveSettings();
@@ -281,6 +292,7 @@ private:
 	TBool iBusyOn;                       // ...ESpBusySetup: turning 230400 always on
 	TBool iChecking;                     // a quick look at the modem is asked for
 	TBool iWarnPending;                  // the welcome is to be shown (or iWarned brought up to date)
+	TUint iPendingCmd;                   // (0.27) the Control panel's commands not yet done (pbcmd.h)
 	TInt iTestOnly;                      // the test running: at 115200 or 230400 only, or 0 both
 	// the hook, as the app reads it
 	RPbHook iHook;
@@ -2407,6 +2419,50 @@ void CSpAppUi::RestartL()
 	iEikonEnv->InfoMsg(m);
 	}
 
+// (0.27) PsiBoost in the Control panel (ctl/pbctl.cpp) has asked, with a
+// window server message, while PsiBoost was open
+void CSpAppUi::HandleWsEventL(const TWsEvent& aEvent, CCoeControl* aDestination)
+	{
+	if (aEvent.Type() == EEventUser && ((const TUint32*)aEvent.EventData())[0] == KPbCmdEvent)
+		{
+		iPendingCmd |= ((const TUint32*)aEvent.EventData())[1];
+		return;
+		}
+	CEikAppUi::HandleWsEventL(aEvent, aDestination);
+	}
+
+// (0.27) one step of what the Control panel asked for, in order: the other
+// end, 230,400 bps always (each saved and done as from the page), then a
+// test or freeing the port. The next step waits for the tick after this
+// one is done.
+void CSpAppUi::DoPendingL()
+	{
+	TUint cmd = iPendingCmd;
+	if (cmd & (EPbCmdModem | EPbCmdComputer))
+		{
+		iPendingCmd &= ~(EPbCmdModem | EPbCmdComputer);
+		TInt end = cmd & EPbCmdComputer ? 1 : 0;
+		if (end != iSettings.iOtherEnd)
+			SetOtherEnd(end);
+		return;
+		}
+	if (cmd & (EPbCmdOn | EPbCmdOff))
+		{
+		iPendingCmd &= ~(EPbCmdOn | EPbCmdOff);
+		TBool on = (cmd & EPbCmdOn) != 0;
+		if (on != (iSettings.iAlways != 0))
+			StartAlwaysL(on);
+		return;
+		}
+	iPendingCmd = 0;
+	if (iView->Results())
+		iView->ShowResults(EFalse);
+	if (cmd & EPbCmdTest)
+		StartTestL();
+	else if (cmd & EPbCmdFree)
+		StartFreeL();
+	}
+
 TInt CSpAppUi::Tick(TAny* aThis)
 	{
 	((CSpAppUi*)aThis)->DoTick();
@@ -2419,6 +2475,13 @@ void CSpAppUi::DoTick()
 		{
 		iWarnPending = EFalse;           // (first: the dialog runs the timer again)
 		TRAPD(r, WelcomeL());
+		(void)r;
+		}
+	// (0.27) the Control panel's commands, once the welcome is done and
+	// nothing else is running
+	if (iPendingCmd && !iWarnPending && iBusy == ESpIdle && !iTesting && !IsDisplayingMenuOrDialog())
+		{
+		TRAPD(r, DoPendingL());
 		(void)r;
 		}
 	TBool redraw = EFalse;

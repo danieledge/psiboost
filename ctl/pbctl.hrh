@@ -1,0 +1,14 @@
+// pbctl.hrh - PsiBoost.ctl's dialog lines and buttons
+#ifndef PBCTL_HRH
+#define PBCTL_HRH
+enum TPbCtlIds
+	{
+	EPbCtlAlways = 1,           // 230,400 bps always: Off, On
+	EPbCtlEnd,                  // The other end: A modem, A computer
+	EPbCtlNote,                 // what 230,400 bps always does
+	EPbCtlLast,                 // the last speed test
+	EPbCtlTest = 0x100,         // Test speed: PsiBoost opens and runs the test
+	EPbCtlFree,                 // Free port: PsiBoost opens and frees the serial port
+	EPbCtlOpen                  // Details: PsiBoost's own page (the hook, results, log)
+	};
+#endif

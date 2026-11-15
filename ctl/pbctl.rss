@@ -1,0 +1,57 @@
+// PBCTL.RSS - PsiBoost in the Control panel
+
+NAME PBCT
+
+#include <eikdef.rh>
+#include <eikdialg.rh>
+#include <eikdialg.hrh>
+#include <eikchlst.rh>
+#include <eiklabel.rh>
+#include <eiklabel.hrh>
+#include <eikcmbut.rh>
+#include <eikon.rsg>
+#include <eikctrls.hrh>
+#include "pbctl.hrh"
+
+RESOURCE RSS_SIGNATURE { }
+RESOURCE TBUF { buf=""; }
+
+RESOURCE DIALOG r_pbctl_dialog
+	{
+	title="PsiBoost";
+	flags=EEikDialogFlagWait|EEikDialogFlagButtonsRight;
+	buttons=r_pbctl_buttons;
+	items=
+		{
+		DLG_LINE { type=EEikCtChoiceList; prompt="230,400 bps always"; id=EPbCtlAlways;
+			control=CHOICELIST { array_id=r_pbctl_onoff; }; },
+		DLG_LINE { type=EEikCtChoiceList; prompt="The other end"; id=EPbCtlEnd;
+			control=CHOICELIST { array_id=r_pbctl_end; }; },
+		DLG_LINE { type=EEikCtLabel; id=EPbCtlNote;
+			control=LABEL { horiz_align=EEikLabelAlignHLeft; standard_font=EEikLabelFontAnnotation; reserve_length=90; txt="Programs asking for 115,200 bps get 230,400: set the computer's port to match."; }; },
+		DLG_LINE { type=EEikCtLabel; id=EPbCtlLast;
+			control=LABEL { horiz_align=EEikLabelAlignHLeft; standard_font=EEikLabelFontAnnotation; reserve_length=100; txt="No speed test yet"; }; }
+		};
+	}
+
+RESOURCE DLG_BUTTONS r_pbctl_buttons
+	{
+	buttons=
+		{
+		DLG_BUTTON { id=EPbCtlTest; button=CMBUT { txt="Test speed"; }; hotkey='T'; },
+		DLG_BUTTON { id=EPbCtlFree; button=CMBUT { txt="Free port"; }; hotkey='F'; },
+		DLG_BUTTON { id=EPbCtlOpen; button=CMBUT { txt="Details"; }; hotkey='D'; },
+		DLG_BUTTON { id=EEikBidCancel; button=CMBUT { txt="Cancel"; }; hotkey=EEikBidCancel; flags=0; },
+		DLG_BUTTON { id=EEikBidOk; button=CMBUT { txt="OK"; }; hotkey=EEikBidOk; flags=0; }
+		};
+	}
+
+RESOURCE ARRAY r_pbctl_onoff
+	{
+	items= { LBUF { txt="Off"; }, LBUF { txt="On"; } };
+	}
+
+RESOURCE ARRAY r_pbctl_end
+	{
+	items= { LBUF { txt="A modem"; }, LBUF { txt="A computer"; } };
+	}

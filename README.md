@@ -18,6 +18,14 @@ Runs the **Psion Series 5mx**'s serial port at **230,400 bps** instead of 115,20
 
 PsiBoost is part of the [PsiTerm suite](https://github.com/danieledge/psiterm) (PsiTerm, PsiMail, PsiWeb, PsiCast) and uses its shared code, [psion-core](https://github.com/danieledge/psion-core).
 
+## What's new in 0.27
+
+- PsiBoost is in the **Control panel** now, not on the Extras bar. Open the System screen's Control panel and choose **PsiBoost**. It shows 230,400 bps always (on or off), what is on the other end of the cable, and your last speed test.
+- Change either one and press OK: PsiBoost opens and does it, with the same messages as before. **Test speed**, **Free port** and **Details** open PsiBoost at that job, or at its page.
+- PsiBoost's own page, menus, log and results are unchanged. The start-up file and the hook work as in 0.26.
+
+<p align="center"><img src="docs/img/5mx-psiboost-control-panel-item.png" alt="PsiBoost in the Control panel: 230,400 bps always Off, The other end A modem, Test speed, Free port, Details, Cancel and OK" width="560"></p>
+
 ## What's new in 0.26
 
 Since 0.24, the last release.
@@ -53,7 +61,7 @@ PsiBoost 0.26 on the netBook and the Series 5mx, in emulators. Tap or click one 
 
 ## Installing
 
-Download `PsiBoost.sis` from the [latest release](https://github.com/danieledge/psiboost/releases/latest) and install it, to D: if you can. The start-up file always goes on the CF card, whichever disk you choose. PsiBoost is on the Extras bar.
+Download `PsiBoost.sis` from the [latest release](https://github.com/danieledge/psiboost/releases/latest) and install it, to D: if you can. The start-up file always goes on the CF card, whichever disk you choose. PsiBoost is in the Control panel (System screen, Control panel, PsiBoost). Since 0.27 it is no longer on the Extras bar.
 
 ### The first time it opens
 
@@ -71,6 +79,17 @@ Then it asks what is on the other end of the Psion's serial cable:
 The line under the choice says what to do next. Both pages need **Continue**: Esc does not get round them, and if PsiBoost is closed before then they come again next time. **Speed > The other end** changes the choice later. Upgrading from 0.23 or earlier, PsiBoost asks once too, unless it already knows (a computer chosen, or 230,400 bps always on with a modem).
 
 ## Using it
+
+**In the Control panel**, PsiBoost shows its two settings. Choose On or Off for 230,400 bps always, and A modem or A computer for the other end, then press OK. PsiBoost opens and makes the change. The Control panel cannot wait for the modem, so PsiBoost does the work on its own page, with the messages described below. The first time, PsiBoost's welcome comes first.
+
+<p align="center"><img src="docs/img/5mx-control-panel.png" alt="The Series 5mx Control panel with PsiBoost beside Modems" width="560"></p>
+
+<p align="center"><img src="docs/img/5mx-psiboost-control-panel-on.png" alt="PsiBoost in the Control panel with 230,400 bps always on and a computer on the other end" width="560"></p>
+
+**Test speed** opens the speed test, **Free port** frees the serial port, and **Details** opens PsiBoost's page: the hook, the results and the log. PsiHub finds the item too: type "psiboost".
+
+The rest of this section is PsiBoost's own page.
+
 
 **230,400 bps always.** Tap it (or press Enter on it), and again to turn it off. The serial port must be free: close the program using it, or use **Free the serial port**, which stops Psion Internet if it is connected and waits up to 20 s for the port. While it works, the busy message says so:
 
@@ -164,6 +183,8 @@ core/tools/docker/psibuild "bash build.sh"   # build/pkg/PsiBoost.sis
 | File | What it is |
 |---|---|
 | `psiboost.cpp`, `.rss`, `.hrh` | PsiBoost.app: the page, the menus, the dialogs, the hook read and put back |
+| `ctl/pbctl.cpp`, `.rss`, `.hrh` | `PsiBoost.ctl`, PsiBoost in the Control panel |
+| `pbcmd.h` | what the Control panel item asks PsiBoost.app to do |
 | `pboostd.cpp` | `pboostd.exe`, the helper: all the serial work, while PsiBoost is open |
 | `sptest.c`, `sptest.h` | the link test's arithmetic (chargen, echo, HTTP, MD5, the verdict), plain C |
 | `spshared.h` | the memory the program and the helper share |

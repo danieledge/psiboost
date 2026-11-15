@@ -66,7 +66,13 @@ def icon(n):
 if __name__ == "__main__":
     icons = colour_icons("psiboost") or [icon(n) for n in (24, 32, 48)]
     out = sys.argv[1] if len(sys.argv) > 1 else "psiboost.aif"
-    print(out, write_aif(out, 0x01000A94, [(1, "PsiBoost"), (10, "PsiBoost")], icons), "bytes")
+    # (0.27) the program is hidden from the Extras bar: PsiBoost in the
+    # Control panel opens it. "--ctl": the Control panel item's .aif instead
+    # (PsiBoost.ctl's UID, the same icon), not hidden
+    if "--ctl" in sys.argv:
+        print(out, write_aif(out, 0x01000AD1, [(1, "PsiBoost"), (10, "PsiBoost")], icons), "bytes")
+    else:
+        print(out, write_aif(out, 0x01000A94, [(1, "PsiBoost"), (10, "PsiBoost")], icons, hidden=1), "bytes")
     if len(sys.argv) <= 1:
         prev = Image.new("L", (24 + 32 + 48 + 40, 58), 200)
         x = 10

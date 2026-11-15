@@ -25,7 +25,7 @@ D=$OUT/implib; rm -rf "$D"; mkdir -p "$D"
 	--def "$HERE/ekern_rom.def" --dllname "EKERN[100000ba].EXE" )
 
 # the SDK finds each project through a link in its ptproj/ folder
-for l in psiboost:. psiboostcore:$CORE/ssh pboosthook:hook pboostrec:rec pboostuart:uart; do
+for l in psiboost:. psiboostcore:$CORE/ssh pboosthook:hook pboostrec:rec pboostuart:uart pboostctl:ctl; do
 	name=${l%%:*}; dir=${l#*:}
 	case $dir in /*) ;; *) dir=$HERE/$dir ;; esac
 	if [ -e "$EPOCROOT/ptproj/$name" ] && [ ! -L "$EPOCROOT/ptproj/$name" ]; then
@@ -50,11 +50,14 @@ echo "== PBUART21.LDD, PBHOOK20.LDD, PsiBoost.rdl"
 mk pboostuart pbuart uart
 mk pboosthook pbhook hook
 mk pboostrec pbrec rec
+echo "== PsiBoost.ctl (PsiBoost in the Control panel)"
+mk pboostctl pbctl ctl
 
 P=$OUT/pkg
 rm -rf "$P"; mkdir -p "$P"
 cp "$REL/pbuart21.ldd" "$REL/pbhook20.ldd" "$REL/psiboost.rdl" "$REL/psiboost.app" "$REL/psiboost.rsc" \
-	"$REL/pboostd.exe" "$HERE/psiboost.pkg" "$OUT/icons/psiboost.mbm" "$P/"
+	"$REL/pboostd.exe" "$REL/pbctl.dll" "$REL/pbctl.rsc" "$HERE/psiboost.pkg" "$OUT/icons/psiboost.mbm" "$P/"
 python3 "$HERE/mkicon.py" "$P/psiboost.aif" > /dev/null
+python3 "$HERE/mkicon.py" "$P/pbctl.aif" --ctl > /dev/null
 ( cd "$P" && wine "$EPOCROOT/epoc32/tools/makesis.exe" psiboost.pkg PsiBoost.sis > /dev/null )
 ls -la "$P/PsiBoost.sis"
