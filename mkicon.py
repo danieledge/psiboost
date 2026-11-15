@@ -12,6 +12,7 @@ _here = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, next((p for p in (os.path.join(_here, "core/tools/icon"), os.path.join(_here, "../core/tools/icon"))
                          if os.path.isdir(p)), os.path.join(_here, "core/tools/icon")))
 from aif import write_aif
+from colouricon import colour_icons   # the colour icons (colour/), when there
 K, D, L, W = 0, 85, 170, 255
 
 
@@ -63,7 +64,7 @@ def icon(n):
 
 
 if __name__ == "__main__":
-    icons = [icon(n) for n in (24, 32, 48)]
+    icons = colour_icons("psiboost") or [icon(n) for n in (24, 32, 48)]
     out = sys.argv[1] if len(sys.argv) > 1 else "psiboost.aif"
     print(out, write_aif(out, 0x01000A94, [(1, "PsiBoost"), (10, "PsiBoost")], icons), "bytes")
     if len(sys.argv) <= 1:
