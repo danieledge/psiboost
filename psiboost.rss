@@ -197,9 +197,9 @@ RESOURCE DIALOG r_sp_end_dialog
 		DLG_LINE { type=EEikCtChoiceList; prompt="The other end"; id=ESpDlgOtherEnd;
 			control=CHOICELIST { array_id=r_sp_end_array; }; },
 		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
-			txt="A modem answers AT commands: the PsiConnect Wi-Fi modem, a dial-up modem, a phone"; }; },
+			txt="A modem answers AT commands: PsiConnect, a dial-up modem, a phone"; }; },
 		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
-			txt="A computer does not: a serial cable or a USB serial adapter, running pppd or similar"; }; },
+			txt="A computer does not: a cable or USB adapter, with pppd or similar"; }; },
 		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndNext; control=LABEL { reserve_length=50; txt="-"; }; },
 		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndHow; control=LABEL { standard_font=EEikLabelFontAnnotation;
 			reserve_length=80; txt="-"; }; },
@@ -221,9 +221,9 @@ RESOURCE DIALOG r_sp_setup_dialog
 		DLG_LINE { type=EEikCtChoiceList; prompt="The other end"; id=ESpDlgOtherEnd;
 			control=CHOICELIST { array_id=r_sp_end_array; }; },
 		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
-			txt="A modem answers AT commands: the PsiConnect Wi-Fi modem, a dial-up modem, a phone"; }; },
+			txt="A modem answers AT commands: PsiConnect, a dial-up modem, a phone"; }; },
 		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation;
-			txt="A computer does not: a serial cable or a USB serial adapter, running pppd or similar"; }; },
+			txt="A computer does not: a cable or USB adapter, with pppd or similar"; }; },
 		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndNext; control=LABEL { reserve_length=50; txt="-"; }; },
 		DLG_LINE { type=EEikCtLabel; id=ESpDlgEndHow; control=LABEL { standard_font=EEikLabelFontAnnotation;
 			reserve_length=80; txt="-"; }; },

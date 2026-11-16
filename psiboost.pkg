@@ -6,7 +6,7 @@
 ; disk the rest goes on: take the card out and restart, and it is gone.
 ; Built by build.sh into build/pkg/.
 &EN
-#{"PsiBoost"},(0x01000A94),0,27,0
+#{"PsiBoost"},(0x01000A94),0,28,0
 "psiboost.app"-"!:\System\Apps\PsiBoost\PsiBoost.app"
 "psiboost.rsc"-"!:\System\Apps\PsiBoost\PsiBoost.rsc"
 "psiboost.aif"-"!:\System\Apps\PsiBoost\PsiBoost.aif"
