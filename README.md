@@ -18,6 +18,12 @@ Runs the **Psion Series 5mx**'s serial port at **230,400 bps** instead of 115,20
 
 PsiBoost is part of the [PsiTerm suite](https://github.com/danieledge/psiterm) (PsiTerm, PsiMail, PsiWeb, PsiCast) and uses its shared code, [psion-core](https://github.com/danieledge/psion-core).
 
+## What's new in 0.29
+
+- Fixed: PsiBoost could close as it opened when the start-up line in its log fell at one exact place in a long log.
+- About PsiBoost names the licence and where the source is.
+- Since 0.28: The other end and Set up PsiBoost are narrower dialogs.
+
 ## What's new in 0.27
 
 - PsiBoost is in the **Control panel** now, not on the Extras bar. Open the System screen's Control panel and choose **PsiBoost**. It shows 230,400 bps always (on or off), what is on the other end of the cable, and your last speed test.
