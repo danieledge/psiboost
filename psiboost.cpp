@@ -1524,7 +1524,7 @@ void CSpAppUi::LastStartUp(TDes& aLine) const
 	for (TInt i = 0; i + KMark().Length() <= d.Length(); i++)
 		if (d.Mid(i, KMark().Length()) == KMark)
 			at = i;
-	if (at < 5)
+	if (at < 8)                          // (the time before it is read below: the 2048 bytes may start inside it)
 		return;
 	TPtrC8 rest(d.Mid(at + KMark().Length()));
 	TInt eol = rest.Locate('\r');
@@ -1534,7 +1534,7 @@ void CSpAppUi::LastStartUp(TDes& aLine) const
 	hm.Copy(d.Mid(at - 8, 5));           // ("hh:mm:ss Start-up: ...")
 	aLine.Format(_L("At start-up, %S: "), &hm);
 	TBuf<100> t;
-	t.Copy(rest.Left(Min(rest.Length(), aLine.MaxLength() - aLine.Length())));
+	t.Copy(rest.Left(Min(rest.Length(), Min(t.MaxLength(), aLine.MaxLength() - aLine.Length()))));
 	aLine.Append(t);
 	}
 
