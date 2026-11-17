@@ -281,7 +281,8 @@ RESOURCE DIALOG r_sp_about_dialog
 		DLG_LINE { type=EEikCtLabel; id=ESpDlgAbout1; control=LABEL { standard_font=EEikLabelFontLegend; reserve_length=24; txt="PsiBoost"; }; },
 		DLG_LINE { type=EEikCtLabel; id=ESpDlgAbout2; control=LABEL { txt="Every program's serial port at 230,400 bps - (c) 2026 Dan Edge"; }; },
 		DLG_LINE { type=EEikCtLabel; id=ESpDlgAboutStatus; control=LABEL { standard_font=EEikLabelFontAnnotation; reserve_length=70; txt="-"; }; },
-		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="Only tested on a 5mx, ROM 1.05(260), with a PsiConnect modem: back up C: first"; }; }
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="Only tested on a 5mx, ROM 1.05(260), with a PsiConnect modem: back up C: first"; }; },
+		DLG_LINE { type=EEikCtLabel; control=LABEL { standard_font=EEikLabelFontAnnotation; txt="MIT licence; source: github.com/danieledge/psiboost"; }; }
 		};
 	}
 
